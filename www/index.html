@@ -6,7 +6,7 @@
 	<META NAME="GENERATOR" CONTENT="OpenOffice.org 2.0  (Win32)">
 	<META NAME="CREATED" CONTENT="20060713;10062312">
 	<META NAME="CHANGEDBY" CONTENT="Bruce Bahnsen">
-	<META NAME="CHANGED" CONTENT="20060713;10495329">
+	<META NAME="CHANGED" CONTENT="20060713;11395215">
 </HEAD>
 <BODY LANG="en-US" DIR="LTR">
 <P><B><FONT SIZE=5>W</FONT></B>elcome to the <STRONG>EDK II
@@ -25,25 +25,12 @@ here only to update the CVS repository or to get access to the latest
 code snapshots. Use the EDK project to post issues, join mailing
 lists, participate in discussion forums, etc. In short, consider them
 one project with two code repositories.</P>
-<H3><A NAME="stop"></A>EDK II FAT-Driver News</H3>
-<P>The EDK II FAT-Driver development team is pleased to announce a
-new <B>&quot;Enhanced&quot;</B> FAT-Driver. This project will now be
-used to develop and maintain both drivers. From this point on, the
-original FAT-Driver will be referred to as <B>FAT-Driver</B> while
-the new driver will go by the <B>Enhanced-FAT-Driver</B> name. Both
-drivers will be using the same Project Tracer and each have their own
-<B>module</B> name when creating/modifying TASKs or ENHANCEMENTs. The
-enhanced-fat-driver is also published under the same license as the
-fat-driver2. To view more specific information about the
-enhanced-fat-driver, go to the <A HREF="#Enhanced_Fat_Driver">Enhanced-FAT-Driver</A>
-section. 
-</P>
 <H3>Working with the FAT32 Code</H3>
 <P>The FAT-Driver project is sponsored by Intel and released under
 the BSD License with one additional term. Before using the code
 please read the license below, paying special attention to the
 &quot;Additional Terms&quot; section:</P>
-<FORM ACTION="">
+<FORM ACTION="../www">
 	<P><TEXTAREA ROWS=7 COLS=99 STYLE="width: 8.54in; height: 1.54in">Copyright (c) 2004, Intel Corporation
 All rights reserved.
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -115,52 +102,8 @@ of the original FAT-Driver's memory footprint.
 	<LI><P>2/3 the image size of the original FAT-Driver 
 	</P>
 </UL>
-<H4>So why are there two FAT-Driver implementations in the
-fat-driver2 project?</H4>
-<UL>
-	<LI><P STYLE="margin-bottom: 0in">Publish the enhanced FAT
-	implementation so that people can try the new implementation with
-	size and performance benefits 
-	</P>
-	<LI><P>Keep the original FAT driver for backward compatibility or
-	avoid potential risk for mature products 
-	</P>
-</UL>
-<H4>Which driver should I use?</H4>
-<UL>
-	<LI><P STYLE="margin-bottom: 0in">Enhanced-FAT-Driver 
-	</P>
-	<UL>
-		<LI><P STYLE="margin-bottom: 0in">When you need the fastest FAT
-		filesystem driver 
-		</P>
-	</UL>
-	<LI><P STYLE="margin-bottom: 0in">When space is crucial 
-	</P>
-	<LI><P STYLE="margin-bottom: 0in">FAT-Driver 
-	</P>
-	<UL>
-		<LI><P STYLE="margin-bottom: 0in">When you need stability to avoid
-		possible risk of a new implementation 
-		</P>
-	</UL>
-	<LI><P>When you prefer to keep the original behavior, such as 8.3
-	name generation algorithm, complete controller name for each volume 
-	</P>
-</UL>
-<H4><!-- <p>
-When making your decision, remember that the Enhanced FAT-Driver is backward compatible with the original FAT-Driver. 
-It also has a sector allocation mechanism that can make it easier to recover deleted files.
-</p> -->What
-does this mean to you?</H4>
-<P>The source code will be housed in the same repository so there is
-no need to checkout multiple projects to work on these drivers. The
-Project Tracker configuration is setup to allow for concurrent
-DEFECT, ENHANCEMENT and TASK management for both projects. The only
-real concern for you is to figure out which driver to use when. 
-</P>
-<H3>Joining the FAT-Driver Project 
-</H3>
+<H4>Joining the FAT-Driver Project 
+</H4>
 <P>To join the FAT-Driver Project simply click on the &quot;Request
 Project Membership/Role&quot; link above and choose &quot;Observer&quot;
 as a requested role (that's the default role for all new project
