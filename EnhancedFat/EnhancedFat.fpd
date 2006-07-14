@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PlatformSurfaceArea xmlns="http://www.TianoCore.org/2006/Edk2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <PlatformHeader>
+    <PlatformName>Enhanced_Fat_Driver</PlatformName>
+    <GuidValue>25b55dbc-9d0b-4a32-80da-46e1273d622c</GuidValue>
+    <Version>0.3</Version>
+    <Abstract>Build Binary Enhanced Fat Driver Modules</Abstract>
+    <Description>This Platform file is used to generate the Binary Fat Drivers for EDK II release.</Description>
+    <Copyright>Copyright (c) 2006, Intel Corporation</Copyright>
+    <License>Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+     Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+
+     Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+
+     Neither the name of Intel nor the names of its contributors may
+     be used to endorse or promote products derived from this software
+     without specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+   Additional terms: In addition to the forgoing, redistribution and use
+   of the code is conditioned upon the FAT 32 File System Driver and all
+   derivative works thereof being used for and designed only to read
+   and/or write to a file system that is directly managed by an
+   Extensible Firmware Interface (EFI) implementation or by an emulator
+   of an EFI implementation.</License>
+    <Specification>FRAMEWORK_BUILD_PACKAGING_SPECIFICATION   0x00000052</Specification>
+  </PlatformHeader>
+  <PlatformDefinitions>
+    <SupportedArchitectures>IA32 X64 IPF EBC</SupportedArchitectures>
+    <BuildTargets>DEBUG RELEASE</BuildTargets>
+    <IntermediateDirectories>UNIFIED</IntermediateDirectories>
+    <SkuInfo>
+      <UiSkuName SkuID="0">DEFAULT</UiSkuName>
+    </SkuInfo>
+  </PlatformDefinitions>
+  <Flash>
+    <FlashDefinitionFile>dummy.fdf</FlashDefinitionFile>
+  </Flash>
+  <FrameworkModules>
+    <ModuleSA ModuleGuid="961578FE-B6B7-44c3-AF35-6BC705CD2B1F" ModuleVersion="1.0" PackageGuid="8EA68A2C-99CB-4332-85C6-DD5864EAA674" PackageVersion="1.0">
+      <Libraries>
+        <Instance ModuleGuid="ff5c7a2c-ab7a-4366-8616-11c6e53247b6" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="f1bbe03d-2f28-4dee-bec7-d98d7a30c36a" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="3a004ba5-efe0-4a61-9f1a-267a46ae5ba9" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="331deb15-454b-48d8-9b74-70d01f3f3556" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="52af22ae-9901-4484-8cdc-622dd5838b09" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="3ddc3b12-99ea-4364-b315-6310a2050be5" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="bda39d3a-451b-4350-8266-81ab10fa0523" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="50bcb105-6634-441d-b403-659110a03ad2" PackageGuid="B6EC423C-21D2-490D-85C6-DD5864EAA674"/>
+        <Instance ModuleGuid="27d67720-ea68-48ae-93da-a3a074c90e30" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="4674739d-3195-4fb2-8094-ac1d22d00194" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="19cbbb97-ff61-45ff-8c3f-dfa66dd118c8" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
+        <Instance ModuleGuid="b5a05743-9b71-489b-a0ed-a0eb3950d23b" ModuleVersion="1.0" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec" PackageVersion="0.3"/>
+        <Instance ModuleGuid="af97eb89-4cc6-45f8-a514-ca025b346480" ModuleVersion="1.0" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec" PackageVersion="0.3"/>
+        <Instance ModuleGuid="e94cd42a-3aad-4ea0-9b09-945891c60ccd" ModuleVersion="1.0" PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec" PackageVersion="0.3"/>
+      </Libraries>
+      <PcdBuildDefinition>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdMaximumUnicodeStringLength</C_Name>
+          <Token>0x00000001</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>1000000</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdMaximumAsciiStringLength</C_Name>
+          <Token>0x00000002</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>1000000</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdSpinLockTimeout</C_Name>
+          <Token>0x00000004</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>10000000</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdMaximumLinkedListLength</C_Name>
+          <Token>0x00000003</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>1000000</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdReportStatusCodePropertyMask</C_Name>
+          <Token>0x00000007</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT8</DatumType>
+          <MaxDatumSize>1</MaxDatumSize>
+          <Value>0x07</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdDebugPropertyMask</C_Name>
+          <Token>0x00000005</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT8</DatumType>
+          <MaxDatumSize>1</MaxDatumSize>
+          <Value>0x0f</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdDebugPrintErrorLevel</C_Name>
+          <Token>0x00000006</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>0x80000000</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdDebugClearMemoryValue</C_Name>
+          <Token>0x00000008</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT8</DatumType>
+          <MaxDatumSize>1</MaxDatumSize>
+          <Value>0xAF</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdPerformanceLibraryPropretyMask</C_Name>
+          <Token>0x00000009</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT8</DatumType>
+          <MaxDatumSize>1</MaxDatumSize>
+          <Value>0</Value>
+        </PcdData>
+      </PcdBuildDefinition>
+      <ModuleSaBuildOptions>
+        <FvBinding>NULL</FvBinding>
+        <FfsFormatKey>BS_DRIVER</FfsFormatKey>
+      </ModuleSaBuildOptions>
+    </ModuleSA>
+  </FrameworkModules>
+  <BuildOptions>
+    <Options>
+      <!--MSFT tool chain options definition : IA32-->
+      <Option ToolChainFamily="MSFT" SupArchList="IA32" ToolCode="CC">"/nologo", "/W3", "/WX", "/GX", "/Gy", "/Gs-", "/c", "/D EFI32", "/D UNICODE", "/FI${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IA32" ToolCode="SLINK">"/NOLOGO"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IA32" ToolCode="DLINK">"/NOLOGO", "/NODEFAULTLIB", "/IGNORE:4086", "/MAP", "/OPT:REF", "/MACHINE:I386", "/ALIGN:32", "/DLL", "/LTCG", "/ENTRY:${ENTRYPOINT}", "/SUBSYSTEM:${SUBSYSTEM}"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IA32" ToolCode="ASM">"/nologo", "/W3", "/WX", "/c", "/coff", "/DEFI32", "/Fl${DEST_DIR_OUTPUT}/${FILE_PATH}/${FILE_BASENAME}.lst"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IA32" ToolCode="ASMLINK"/>
+      <Option ToolChainFamily="MSFT" SupArchList="IA32" ToolCode="PP">"/nologo", "/P", "/TC", "/FI${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IA32" ToolCode="ASL">"/nologo"</Option>
+      <!--MSFT tool chain options definition : X64-->
+      <Option ToolChainFamily="MSFT" SupArchList="X64" ToolCode="CC">"/nologo", "/X", "/W4", "/WX", "/Gy", "/c", "/Gs8192", "/GS-", "/D EFIx64", "/O1i", "/FAcs", "/FI${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="X64" ToolCode="SLINK">"/NOLOGO"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="X64" ToolCode="DLINK">"/NOLOGO", "/Machine:AMD64", "/ALIGN:32", "/DLL", "/NODEFAULTLIB", "/OPT:REF", "/ENTRY:${ENTRYPOINT}", "/SUBSYSTEM:${SUBSYSTEM}"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="X64" ToolCode="ASM">"/nologo", "/W3", "/WX", "/c", "/DEFI32"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="X64" ToolCode="ASMLINK">"/NOLOGO"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="X64" ToolCode="PP">"/nologo", "/P", "/TC", "/FI${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="X64" ToolCode="ASL">"/nologo"</Option>
+      <!--MSFT tool chain options definition : IPF-->
+      <Option ToolChainFamily="MSFT" SupArchList="IPF" ToolCode="CC">"/nologo", "/W4", "/WX", "/EHsc", "/Gy", "/c", "/GS-", "/D EFI64", "/O1i", "/FI${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IPF" ToolCode="SLINK">"/NOLOGO"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IPF" ToolCode="DLINK">"/NOLOGO", "/NODEFAULTLIB", "/IGNORE:4086", "/MAP", "/OPT:REF", "/MACHINE:IA64", "/ENTRY:${ENTRYPOINT}", "/SUBSYSTEM:${SUBSYSTEM}"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IPF" ToolCode="ASM">"-N us", "-X explicit", "-M ilp64", "-N so", "-W4"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IPF" ToolCode="ASMLINK">"/NOLOGO"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IPF" ToolCode="PP">"/nologo", "/P", "/TC"</Option>
+      <Option ToolChainFamily="MSFT" SupArchList="IPF" ToolCode="ASL">"/nologo"</Option>
+      <!--INTEL tool chain options definition : EBC-->
+      <Option ToolChainFamily="INTEL" SupArchList="EBC" ToolCode="CC">"-nologo", "-FAcs", "-c", "-W3", "-WX", "-FI${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+      <Option ToolChainFamily="INTEL" SupArchList="EBC" ToolCode="SLINK">"/lib", "/NOLOGO", "/MACHINE:EBC"</Option>
+      <Option ToolChainFamily="INTEL" SupArchList="EBC" ToolCode="DLINK">"/NOLOGO", "/MACHINE:EBC", "/SUBSYSTEM:EFI_BOOT_SERVICE_DRIVER", "/OPT:REF", "/NODEFAULTLIB", "/ENTRY:${ENTRYPOINT}", "/SUBSYSTEM:${SUBSYSTEM}"</Option>
+      <Option ToolChainFamily="INTEL" SupArchList="EBC" ToolCode="PP">"-nologo", "-P", "-TC"</Option>
+      <!--GCC tool chain options definition : IA32-->
+      <Option ToolChainFamily="GCC" SupArchList="IA32" ToolCode="CC">"-Os", "-fshort-wchar", "-fno-strict-aliasing", "-Wall", "-Werror", "-c", "-include ${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+      <Option ToolChainFamily="GCC" SupArchList="IA32" ToolCode="ASM">"-c", "-imacros ${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+      <Option ToolChainFamily="GCC" SupArchList="IA32" ToolCode="SLINK"/>
+      <Option ToolChainFamily="GCC" SupArchList="IA32" ToolCode="DLINK">"-nostdlib", "-O2", "--gc-sections", "--dll", "--export-all-symbols", "--entry _${ENTRYPOINT}"</Option>
+      <Option ToolChainFamily="GCC" SupArchList="IA32" ToolCode="ASMLINK"/>
+      <Option ToolChainFamily="GCC" SupArchList="IA32" ToolCode="PP">"-E", "-x assembler-with-cpp", "-include ${DEST_DIR_DEBUG}/AutoGen.h"</Option>
+    </Options>
+    <Ffs FfsKey="APPLICATION">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_APPLICATION"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections EncapsulationType="Compress">
+        <Sections EncapsulationType="Guid-Defined">
+          <Section SectionType="EFI_SECTION_PE32"/>
+          <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+          <Section SectionType="EFI_SECTION_VERSION"/>
+        </Sections>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="BINARY">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_FREEFORM"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections EncapsulationType="Compress">
+        <Sections EncapsulationType="Guid-Defined">
+          <Section SectionType="EFI_SECTION_RAW"/>
+        </Sections>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="FILE">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_FREEFORM"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections>
+        <Section SectionType="EFI_SECTION_RAW"/>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="PE32_PEIM_CompressPEIM">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_PEIM"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections>
+        <Section SectionType="EFI_SECTION_PEI_DEPEX"/>
+        <Sections EncapsulationType="Compress">
+          <Section SectionType="EFI_SECTION_PE32"/>
+          <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+          <Section SectionType="EFI_SECTION_VERSION"/>
+        </Sections>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="PEI_CORE">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_PEI_CORE"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections>
+        <Section SectionType="EFI_SECTION_PE32"/>
+        <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+        <Section SectionType="EFI_SECTION_VERSION"/>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="PE32_PEIM_Relocatable">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_PEIM"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections>
+        <Section SectionType="EFI_SECTION_PEI_DEPEX"/>
+        <Section SectionType="EFI_SECTION_PE32"/>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="DXE_CORE">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_DXE_CORE"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections EncapsulationType="Compress">
+        <Section SectionType="EFI_SECTION_PE32"/>
+        <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+        <Section SectionType="EFI_SECTION_VERSION"/>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="BS_DRIVER">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_DRIVER"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections EncapsulationType="Compress">
+        <Sections EncapsulationType="Guid-Defined">
+          <Section SectionType="EFI_SECTION_PEI_DEPEX"/>
+          <Section SectionType="EFI_SECTION_PE32"/>
+          <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+          <Section SectionType="EFI_SECTION_VERSION"/>
+        </Sections>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="RT_DRIVER">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_DRIVER"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections EncapsulationType="Compress">
+        <Sections EncapsulationType="Guid-Defined">
+          <Section SectionType="EFI_SECTION_PEI_DEPEX"/>
+          <Section SectionType="EFI_SECTION_PE32"/>
+          <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+          <Section SectionType="EFI_SECTION_VERSION"/>
+        </Sections>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="SAL_RT_DRIVER">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_DRIVER"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections EncapsulationType="Compress">
+        <Sections EncapsulationType="Guid-Defined">
+          <Section SectionType="EFI_SECTION_PEI_DEPEX"/>
+          <Section SectionType="EFI_SECTION_PE32"/>
+          <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+          <Section SectionType="EFI_SECTION_VERSION"/>
+        </Sections>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="COMBINED_PEIM_DRIVER">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_COMBINED_PEIM_DRIVER"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections>
+        <Section SectionType="EFI_SECTION_PEI_DEPEX"/>
+        <Section SectionType="EFI_SECTION_PE32"/>
+        <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+        <Section SectionType="EFI_SECTION_VERSION"/>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="PE32_PEIM">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_PEIM"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections>
+        <Section SectionType="EFI_SECTION_PEI_DEPEX"/>
+        <Section SectionType="EFI_SECTION_PE32"/>
+        <Section SectionType="EFI_SECTION_USER_INTERFACE"/>
+        <Section SectionType="EFI_SECTION_VERSION"/>
+      </Sections>
+    </Ffs>
+    <Ffs FfsKey="Logo">
+      <Attribute Name="FFS_FILETYPE" Value="EFI_FV_FILETYPE_FREEFORM"/>
+      <Attribute Name="FFS_ATTRIB_CHECKSUM" Value="TRUE"/>
+      <Sections EncapsulationType="Compress">
+        <Sections EncapsulationType="Guid-Defined">
+          <Section SectionType="EFI_SECTION_RAW"/>
+        </Sections>
+      </Sections>
+    </Ffs>
+  </BuildOptions>
+</PlatformSurfaceArea>
