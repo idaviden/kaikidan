@@ -6,7 +6,7 @@
 	<META NAME="GENERATOR" CONTENT="OpenOffice.org 2.0  (Win32)">
 	<META NAME="CREATED" CONTENT="20060713;10062312">
 	<META NAME="CHANGEDBY" CONTENT="Bruce Bahnsen">
-	<META NAME="CHANGED" CONTENT="20060713;11395215">
+	<META NAME="CHANGED" CONTENT="20060718;10440834">
 </HEAD>
 <BODY LANG="en-US" DIR="LTR">
 <P><B><FONT SIZE=5>W</FONT></B>elcome to the <STRONG>EDK II
@@ -16,15 +16,16 @@ Specification. The EDK II Fat Driver is separate from the EDK II
 project only because the terms of use of the code are unique,
 requiring us to keep it in a separate code repository (the terms are
 basically that code developed using the FAT32 Specification must be
-associated with EFI). 
-</P>
+associated with EFI). The EDK II Fat Driver is structured as a
+Package that fits into the EDK II's overall build and packaging
+system.</P>
 <P>This project is a <EM>subproject</EM> of the EDK II project, and
 is only used to house the FAT32 code repository. All development
 tools in the EDK project are integrated with this project, so come
-here only to update the CVS repository or to get access to the latest
-code snapshots. Use the EDK project to post issues, join mailing
-lists, participate in discussion forums, etc. In short, consider them
-one project with two code repositories.</P>
+here only to update the Subversion repository or to get access to the
+latest code snapshots. Use the EDK project to post issues, join
+mailing lists, participate in discussion forums, etc. In short,
+consider them one project with two code repositories.</P>
 <H3>Working with the FAT32 Code</H3>
 <P>The FAT-Driver project is sponsored by Intel and released under
 the BSD License with one additional term. Before using the code
@@ -46,13 +47,7 @@ In addition to the forgoing, redistribution and use of the code is conditioned u
 </TEXTAREA>
 		</P>
 </FORM>
-<P>To download code, view the <A HREF="http://fat-driver2.tianocore.org/servlets/ProjectDocumentList?folderID=10&amp;expandFolder=10&amp;folderID=0">directory
-of code snapshots</A> and choose the version (Official Release or
-Development Version) you are interested in and simply click on it to
-start the download process. Join this project if you want to
-contribute code changes (see the next section for guidance). 
-</P>
-<H3><A NAME="Enhanced_Fat_Driver"></A>Enhanced-FAT-Driver</H3>
+<H4><A NAME="Enhanced_Fat_Driver"></A>Enhanced-FAT-Driver</H4>
 <P>The <B>Enhanced-FAT-Driver</B> is a new implementation of the
 FAT32 filesystem. It is a near complete rewrite of the original
 FAT-Driver with over 80% of the code being specific just to the
@@ -89,8 +84,7 @@ of the original FAT-Driver's memory footprint.
 	<LI><P STYLE="margin-bottom: 0in">10x, 100x or even 1000x
 	acceleration when creating thousands files/directories 
 	</P>
-	<LI><P STYLE="margin-bottom: 0in">Smaller Size 
-	</P>
+	<LI><P STYLE="margin-bottom: 0in">Smaller Size</P>
 	<UL>
 		<LI><P STYLE="margin-bottom: 0in">Simplified the controller name
 		from &quot;FAT File System[FAT16] 200MB&quot; to &quot;FAT File
@@ -105,15 +99,13 @@ of the original FAT-Driver's memory footprint.
 <H4>Joining the FAT-Driver Project 
 </H4>
 <P>To join the FAT-Driver Project simply click on the &quot;Request
-Project Membership/Role&quot; link above and choose &quot;Observer&quot;
-as a requested role (that's the default role for all new project
-members). Upon receipt of your request, the FAT-Driver Maintainer
-will approve your project membership. Once in the project you'll
-primarily use the CVS repository located <A HREF="https://fat-driver2.tianocore.org/source/browse/fat-driver2/">here</A>,
-or access the FAT32-specific documents located <A HREF="http://fat-driver2.tianocore.org/servlets/ProjectDocumentList">here</A>.
-</P>
-<H3>Other Common Links and Downloads 
-</H3>
+Project Membership/Role&quot; link above and choose
+&quot;edk2.Participant&quot; as a requested role (that's the default
+role for all new project members). Upon receipt of your request, the
+FAT-Driver Maintainer will approve your project membership. Once in
+the project you'll primarily use the Subversion repository located
+<A HREF="https://fat-driver2.tianocore.org/source/browse/fat-driver2/">here.</A></P>
+<H3>Other Common Links and Downloads</H3>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in"><A HREF="http://fat-driver2.tianocore.org/servlets/ProjectMembershipRequest">Request
 	for a FAT-Driver Project Role (initial or promotion)</A> 
