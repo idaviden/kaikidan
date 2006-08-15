@@ -48,6 +48,6 @@
     <RePackage>false</RePackage>
   </PackageDefinitions>
   <MsaFiles>
-    <Filename>EnhancedFat/Dxe/Fat.msa</Filename>
+    <Filename>Dxe/Fat.msa</Filename>
   </MsaFiles>
 </PackageSurfaceArea>
