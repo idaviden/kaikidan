@@ -443,6 +443,13 @@ Returns:
 
   if (Entry.FileName[0] != EMPTY_ENTRY_MARK) {
     //
+    // Although FAT spec states this field is always 0 for FAT12 & FAT16, some applications
+    // might use it for some special usage, it is safer to zero it in memory for FAT12 & FAT16. 
+    //
+    if (OFile->Volume->FatType != FAT32) {
+      Entry.FileClusterHigh = 0;
+    }
+    //
     // This is a valid directory entry
     //
     DirEnt = EfiLibAllocateZeroPool (sizeof (FAT_DIRENT));
@@ -839,7 +846,8 @@ Returns:
       return Status;
     }
 
-    if (((Entry->Attributes) & (~FAT_ATTRIBUTE_ARCHIVE)) == FAT_ATTRIBUTE_VOLUME_ID) {
+    if ((Entry->FileName[0] != DELETE_ENTRY_MARK) &&
+        (((Entry->Attributes) & (~FAT_ATTRIBUTE_ARCHIVE)) == FAT_ATTRIBUTE_VOLUME_ID)) {
       DirEnt->EntryPos   = EntryPos;
       DirEnt->EntryCount = 1;
       DirEnt->Invalid    = FALSE;
