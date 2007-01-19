@@ -171,11 +171,24 @@ Returns:
 
 --*/
 {
+  EFI_STATUS  Status;
   //
   // This is a device driver, so ChildHandle must be NULL.
   //
   if (ChildHandle != NULL) {
     return EFI_UNSUPPORTED;
+  }
+
+  //
+  // Make sure this driver is currently managing ControllHandle
+  //
+  Status = EfiTestManagedDevice (
+             ControllerHandle,
+             gFatDriverBinding.DriverBindingHandle,
+             &gEfiDiskIoProtocolGuid
+             );
+  if (EFI_ERROR (Status)) {
+    return Status;
   }
 
   return EfiLibLookupUnicodeString (
