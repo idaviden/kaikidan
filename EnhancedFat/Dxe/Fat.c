@@ -63,7 +63,7 @@ EFI_DRIVER_BINDING_PROTOCOL gFatDriverBinding = {
   FatDriverBindingSupported,
   FatDriverBindingStart,
   FatDriverBindingStop,
-  0xa,
+  0x10,
   NULL,
   NULL
 };
