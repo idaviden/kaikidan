@@ -120,7 +120,7 @@ met:
           <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
           <DatumType>UINT8</DatumType>
           <MaxDatumSize>1</MaxDatumSize>
-          <Value>0x0f</Value>
+          <Value>0x0</Value>
         </PcdData>
         <PcdData ItemType="FIXED_AT_BUILD">
           <C_Name>PcdDebugClearMemoryValue</C_Name>
@@ -160,9 +160,21 @@ met:
           <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
           <DatumType>UINT8</DatumType>
           <MaxDatumSize>1</MaxDatumSize>
-          <Value>0x06</Value>
+          <Value>0x0</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdUefiLibMaxPrintBufferSize</C_Name>
+          <Token>0x101</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>320</Value>
         </PcdData>
       </PcdBuildDefinition>
+      <ModuleSaBuildOptions>
+        <FvBinding>NULL</FvBinding>
+        <FfsFormatKey>BS_DRIVER</FfsFormatKey>
+      </ModuleSaBuildOptions>
     </ModuleSA>
     <!--Mod: Enhanced Fat Source Module Type: UEFI_DRIVER Path: EnhancedFat\Dxe\Fat.msa-->
     <ModuleSA ModuleGuid="961578FE-B6B7-44c3-AF35-6BC705CD2B1F" ModuleVersion="1.0" PackageGuid="8EA68A2C-99CB-4332-85C6-DD5864EAA674" PackageVersion="1.0" SupArchList="X64">
@@ -245,7 +257,7 @@ met:
           <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
           <DatumType>UINT8</DatumType>
           <MaxDatumSize>1</MaxDatumSize>
-          <Value>0x0f</Value>
+          <Value>0x0</Value>
         </PcdData>
         <PcdData ItemType="FIXED_AT_BUILD">
           <C_Name>PcdDebugClearMemoryValue</C_Name>
@@ -269,9 +281,21 @@ met:
           <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
           <DatumType>UINT8</DatumType>
           <MaxDatumSize>1</MaxDatumSize>
-          <Value>0x06</Value>
+          <Value>0x0</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdUefiLibMaxPrintBufferSize</C_Name>
+          <Token>0x101</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>320</Value>
         </PcdData>
       </PcdBuildDefinition>
+      <ModuleSaBuildOptions>
+        <FvBinding>NULL</FvBinding>
+        <FfsFormatKey>BS_DRIVER</FfsFormatKey>
+      </ModuleSaBuildOptions>
     </ModuleSA>
     <!--Mod: Enhanced Fat Source Module Type: UEFI_DRIVER Path: EnhancedFat\Dxe\Fat.msa-->
     <ModuleSA ModuleGuid="961578FE-B6B7-44c3-AF35-6BC705CD2B1F" ModuleVersion="1.0" PackageGuid="8EA68A2C-99CB-4332-85C6-DD5864EAA674" PackageVersion="1.0" SupArchList="IPF">
@@ -338,7 +362,7 @@ met:
           <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
           <DatumType>UINT8</DatumType>
           <MaxDatumSize>1</MaxDatumSize>
-          <Value>0x0f</Value>
+          <Value>0x0</Value>
         </PcdData>
         <PcdData ItemType="FIXED_AT_BUILD">
           <C_Name>PcdDebugClearMemoryValue</C_Name>
@@ -362,7 +386,7 @@ met:
           <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
           <DatumType>UINT8</DatumType>
           <MaxDatumSize>1</MaxDatumSize>
-          <Value>0x06</Value>
+          <Value>0x0</Value>
         </PcdData>
         <PcdData ItemType="FEATURE_FLAG">
           <C_Name>PcdComponentNameDisable</C_Name>
@@ -380,7 +404,19 @@ met:
           <MaxDatumSize>1</MaxDatumSize>
           <Value>FALSE</Value>
         </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdUefiLibMaxPrintBufferSize</C_Name>
+          <Token>0x101</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>320</Value>
+        </PcdData>
       </PcdBuildDefinition>
+      <ModuleSaBuildOptions>
+        <FvBinding>NULL</FvBinding>
+        <FfsFormatKey>BS_DRIVER</FfsFormatKey>
+      </ModuleSaBuildOptions>
     </ModuleSA>
     <!--Mod: Enhanced Fat Source Module Type: UEFI_DRIVER Path: EnhancedFat\Dxe\Fat.msa-->
     <ModuleSA ModuleGuid="961578FE-B6B7-44c3-AF35-6BC705CD2B1F" ModuleVersion="1.0" PackageGuid="8EA68A2C-99CB-4332-85C6-DD5864EAA674" PackageVersion="1.0" SupArchList="EBC">
@@ -431,7 +467,7 @@ met:
           <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
           <DatumType>UINT8</DatumType>
           <MaxDatumSize>1</MaxDatumSize>
-          <Value>0x0f</Value>
+          <Value>0x0</Value>
         </PcdData>
         <PcdData ItemType="FIXED_AT_BUILD">
           <C_Name>PcdDebugClearMemoryValue</C_Name>
@@ -487,9 +523,21 @@ met:
           <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
           <DatumType>UINT8</DatumType>
           <MaxDatumSize>1</MaxDatumSize>
-          <Value>0x06</Value>
+          <Value>0x0</Value>
+        </PcdData>
+        <PcdData ItemType="FIXED_AT_BUILD">
+          <C_Name>PcdUefiLibMaxPrintBufferSize</C_Name>
+          <Token>0x101</Token>
+          <TokenSpaceGuidCName>gEfiMdePkgTokenSpaceGuid</TokenSpaceGuidCName>
+          <DatumType>UINT32</DatumType>
+          <MaxDatumSize>4</MaxDatumSize>
+          <Value>320</Value>
         </PcdData>
       </PcdBuildDefinition>
+      <ModuleSaBuildOptions>
+        <FvBinding>NULL</FvBinding>
+        <FfsFormatKey>BS_DRIVER</FfsFormatKey>
+      </ModuleSaBuildOptions>
     </ModuleSA>
   </FrameworkModules>
   <BuildOptions>

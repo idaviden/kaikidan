@@ -65,17 +65,12 @@ Returns:
   DISK_CACHE  *DiskCache;
   CACHE_TAG   *CacheTag;
   UINT8       *BaseAddress;
-  EFI_TPL     EntryTpl;
 
   DiskCache     = &Volume->DiskCache[CACHE_DATA];
   BaseAddress   = DiskCache->CacheBase;
   GroupMask     = DiskCache->GroupMask;
   PageAlignment = DiskCache->PageAlignment;
   PageSize      = 1 << PageAlignment;
-  //
-  // Make Cache Update a critical section
-  //
-  EntryTpl = gBS->RaiseTPL (EFI_TPL_NOTIFY);
 
   for (PageNo = StartPageNo; PageNo < EndPageNo; PageNo++) {
     GroupNo   = PageNo & GroupMask;
@@ -102,10 +97,6 @@ Returns:
       }
     }
   }
-  //
-  // Exit Cache Update critical section
-  //
-  gBS->RestoreTPL (EntryTpl);
 }
 
 STATIC
@@ -215,7 +206,6 @@ Returns:
 {
   EFI_STATUS  Status;
   UINTN       OldPageNo;
-  EFI_TPL     EntryTpl;
 
   OldPageNo = CacheTag->PageNo;
   if (CacheTag->RealSize > 0 && OldPageNo == PageNo) {
@@ -224,10 +214,6 @@ Returns:
     //
     return EFI_SUCCESS;
   }
-  //
-  // Make Cache Update a critical section
-  //
-  EntryTpl = gBS->RaiseTPL (EFI_TPL_NOTIFY);
 
   //
   // Write dirty cache page back to disk
@@ -235,7 +221,7 @@ Returns:
   if (CacheTag->RealSize > 0 && CacheTag->Dirty) {
     Status = FatExchangeCachePage (Volume, CacheDataType, WRITE_DISK, CacheTag);
     if (EFI_ERROR (Status)) {
-      goto Done;
+      return Status;
     }
   }
   //
@@ -244,11 +230,6 @@ Returns:
   CacheTag->PageNo  = PageNo;
   Status            = FatExchangeCachePage (Volume, CacheDataType, READ_DISK, CacheTag);
 
-Done:
-  //
-  // Exit Cache Update critical section
-  //
-  gBS->RestoreTPL (EntryTpl);
   return Status;
 }
 
@@ -461,13 +442,8 @@ Returns:
   UINTN           GroupMask;
   DISK_CACHE      *DiskCache;
   CACHE_TAG       *CacheTag;
-  EFI_TPL         EntryTpl;
 
   Status = EFI_SUCCESS;
-  //
-  // Make Cache Update a critical section
-  //
-  EntryTpl = gBS->RaiseTPL (EFI_TPL_NOTIFY);
 
   for (CacheDataType = 0; CacheDataType < CACHE_MAX_TYPE; CacheDataType++) {
     DiskCache = &Volume->DiskCache[CacheDataType];
@@ -484,7 +460,7 @@ Returns:
           //
           Status = FatExchangeCachePage (Volume, CacheDataType, WRITE_DISK, CacheTag);
           if (EFI_ERROR (Status)) {
-            goto Done;
+            return Status;
           }
         }
       }
@@ -492,12 +468,6 @@ Returns:
       DiskCache->Dirty = FALSE;
     }
   }
-
-Done:
-  //
-  // Exit Cache Update critical section
-  //
-  gBS->RestoreTPL (EntryTpl);
 
   return Status;
 }
