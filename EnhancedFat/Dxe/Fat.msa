@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ModuleSurfaceArea xmlns="http://www.TianoCore.org/2006/Edk2.0">
+<ModuleSurfaceArea xmlns="http://www.TianoCore.org/2006/Edk2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <MsaHeader>
-    <ModuleName>Enhanced Fat Source Module</ModuleName>
+    <ModuleName>Fat</ModuleName>
     <ModuleType>UEFI_DRIVER</ModuleType>
     <GuidValue>961578FE-B6B7-44c3-AF35-6BC705CD2B1F</GuidValue>
     <Version>1.0</Version>
     <Abstract>Component description file for FAT module.</Abstract>
-    <Description>FIX ME!</Description>
-    <Copyright>Copyright (c) 2004-2006, Intel Corporation</Copyright>
+    <Description>This UEFI driver detects the FAT file system in the disk. It also produces the Simple File System protocol for the consumer to perform file and directory operations on the disk.</Description>
+    <Copyright>Copyright (c) 2004 - 2007, Intel Corporation</Copyright>
     <License>Redistribution and use in source and binary forms, with or without
       modification, are permitted provided that the following conditions are
       met:
@@ -90,7 +90,8 @@
     <Filename>Open.c</Filename>
     <Filename>OpenVolume.c</Filename>
     <Filename>ReadWrite.c</Filename>
-    <Filename>Fat.c</Filename>
+    <Filename>Fat.h</Filename>
+    <Filename>FatFileSystem.h</Filename>
     <Filename>ComponentName.c</Filename>
     <Filename>DirectoryManage.c</Filename>
     <Filename>Hash.c</Filename>
@@ -98,26 +99,32 @@
     <Filename>DiskCache.c</Filename>
     <Filename>DirectoryCache.c</Filename>
   </SourceFiles>
+  <NonProcessedFiles>
+    <Filename>Debug.c</Filename>
+  </NonProcessedFiles>
   <PackageDependencies>
     <Package PackageGuid="5e0e9358-46b6-4ae2-8218-4ab8b9bbdcec"/>
   </PackageDependencies>
   <Protocols>
-    <Protocol Usage="ALWAYS_CONSUMED">
+    <Protocol Usage="TO_START">
       <ProtocolCName>gEfiBlockIoProtocolGuid</ProtocolCName>
     </Protocol>
-    <Protocol Usage="ALWAYS_CONSUMED">
+    <Protocol Usage="TO_START">
       <ProtocolCName>gEfiDiskIoProtocolGuid</ProtocolCName>
     </Protocol>
-    <Protocol Usage="ALWAYS_CONSUMED">
+    <Protocol Usage="TO_START">
       <ProtocolCName>gEfiUnicodeCollationProtocolGuid</ProtocolCName>
     </Protocol>
-    <!--<Protocol Usage="ALWAYS_CONSUMED">
-      <ProtocolCName>Loadedimage</ProtocolCName>
-    </Protocol>-->
-    <Protocol Usage="ALWAYS_CONSUMED">
+    <Protocol Usage="BY_START">
       <ProtocolCName>gEfiSimpleFileSystemProtocolGuid</ProtocolCName>
     </Protocol>
   </Protocols>
+  <Variables>
+    <Variable Usage="ALWAYS_CONSUMED">
+      <VariableName>0x004c 0x0061 0x006e 0x0067</VariableName>
+      <GuidC_Name>gEfiGlobalVariableGuid</GuidC_Name>
+    </Variable>
+  </Variables>
   <Guids>
     <GuidCNames Usage="ALWAYS_CONSUMED">
       <GuidCName>gEfiGlobalVariableGuid</GuidCName>
@@ -125,9 +132,6 @@
     <GuidCNames Usage="ALWAYS_CONSUMED">
       <GuidCName>gEfiFileSystemInfoGuid</GuidCName>
     </GuidCNames>
-    <!--<GuidCNames Usage="ALWAYS_CONSUMED">
-      <GuidCName>FileSystemVolumeLabelInfo</GuidCName>
-    </GuidCNames>-->
     <GuidCNames Usage="ALWAYS_CONSUMED">
       <GuidCName>gEfiFileInfoGuid</GuidCName>
     </GuidCNames>
