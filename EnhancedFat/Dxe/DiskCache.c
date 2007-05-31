@@ -70,7 +70,7 @@ Returns:
   BaseAddress   = DiskCache->CacheBase;
   GroupMask     = DiskCache->GroupMask;
   PageAlignment = DiskCache->PageAlignment;
-  PageSize      = 1 << PageAlignment;
+  PageSize      = (UINTN)1 << PageAlignment;
 
   for (PageNo = StartPageNo; PageNo < EndPageNo; PageNo++) {
     GroupNo   = PageNo & GroupMask;
@@ -146,7 +146,7 @@ Returns:
   EntryPos      = DiskCache->BaseAddress + LShiftU64 (PageNo, PageAlignment);
   RealSize      = CacheTag->RealSize;
   if (IoMode == READ_DISK) {
-    RealSize  = 1 << PageAlignment;
+    RealSize  = (UINTN)1 << PageAlignment;
     MaxSize   = DiskCache->LimitAddress - EntryPos;
     if (MaxSize < RealSize) {
       DEBUG ((EFI_D_INFO, "FatDiskIo: Cache Page OutBound occurred! \n"));
@@ -356,7 +356,7 @@ Returns:
   DiskCache     = &Volume->DiskCache[CacheDataType];
   EntryPos      = Offset - DiskCache->BaseAddress;
   PageAlignment = DiskCache->PageAlignment;
-  PageSize      = 1 << PageAlignment;
+  PageSize      = (UINTN)1 << PageAlignment;
   PageNo        = (UINTN) RShiftU64 (EntryPos, PageAlignment);
   UnderRun      = ((UINTN) EntryPos) & (PageSize - 1);
 

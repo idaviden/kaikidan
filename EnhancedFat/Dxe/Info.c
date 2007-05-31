@@ -302,7 +302,7 @@ Returns:
   EFI_FILE_INFO *NewInfo;
   FAT_OFILE     *DotOFile;
   FAT_OFILE     *Parent;
-  CHAR16        NewFileName[EFI_FILE_STRING_LENGTH + 1];
+  CHAR16        NewFileName[EFI_PATH_STRING_LENGTH];
   EFI_TIME      ZeroTime;
   FAT_DIRENT    *DirEnt;
   FAT_DIRENT    *TempDirEnt;

@@ -1430,7 +1430,7 @@ Returns:
 {
   EFI_STATUS  Status;
   FAT_VOLUME  *Volume;
-  CHAR16      ComponentName[EFI_FILE_STRING_LENGTH + 1];
+  CHAR16      ComponentName[EFI_PATH_STRING_LENGTH];
   UINTN       FileNameLen;
   BOOLEAN     DirIntended;
   CHAR16      *Next;
@@ -1458,7 +1458,13 @@ Returns:
     FileName++;
     FileNameLen--;
   }
-  if (OFile->FullPathLen + FileNameLen > EFI_FILE_STRING_LENGTH) {
+  //
+  // Per FAT Spec the file name should meet the following criteria:
+  //   C1. Length (FileLongName) <= 255
+  //   C2. Length (X:FileFullPath<NUL>) <= 260
+  // Here we check C2 first.
+  //
+  if (2 + OFile->FullPathLen + 1 + FileNameLen + 1 > EFI_PATH_STRING_LENGTH) {
     //
     // Full path length can not surpass 256 
     //

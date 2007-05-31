@@ -105,7 +105,7 @@ Returns:
 {
   FAT_VOLUME  *Volume;
   EFI_STATUS  Status;
-  CHAR16      NewFileName[EFI_FILE_STRING_LENGTH + 1];
+  CHAR16      NewFileName[EFI_PATH_STRING_LENGTH];
   FAT_DIRENT  *DirEnt;
   UINT8       FileAttributes;
   BOOLEAN     WriteMode;

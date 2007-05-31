@@ -545,6 +545,16 @@ Returns:
   }
 
   *TempNamePointer = 0;
+
+  //
+  // Per FAT Spec the file name should meet the following criteria:
+  //   C1. Length (FileLongName) <= 255
+  //   C2. Length (X:FileFullPath<NUL>) <= 260
+  // Here we check C1.
+  //
+  if (TempNamePointer - OutputFileName > EFI_FILE_STRING_LENGTH) {
+    return FALSE;
+  }
   //
   // See if there is any illegal characters within the name
   //

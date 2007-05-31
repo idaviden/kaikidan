@@ -42,7 +42,7 @@ Returns:
 --*/
 {
   UINT32  HashValue;
-  CHAR16  UpCasedLongFileName[EFI_FILE_STRING_LENGTH + 1];
+  CHAR16  UpCasedLongFileName[EFI_PATH_STRING_LENGTH];
   EfiStrCpy (UpCasedLongFileName, LongNameString);
   FatStrUpr (UpCasedLongFileName);
   gBS->CalculateCrc32 (UpCasedLongFileName, EfiStrSize (UpCasedLongFileName), &HashValue);

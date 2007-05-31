@@ -375,6 +375,11 @@ Returns:
   //
   Status = FatAllocateVolume (ControllerHandle, DiskIo, BlockIo);
 
+  //
+  // When the media changes on a device it will Reinstall the BlockIo interaface. 
+  // This will cause a call to our Stop(), and a subsequent reentrant call to our
+  // Start() successfully. We should leave the device open when this happen.
+  //
   if (EFI_ERROR (Status)) {
     Status = gBS->OpenProtocol (
                     ControllerHandle,
