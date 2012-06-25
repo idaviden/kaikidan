@@ -231,6 +231,12 @@ MmcIdentificationMode (
 
   // Are we using SDIO ?
   Status = MmcHost->SendCommand (MmcHost, MMC_CMD5, 0);
+
+#if 1 // Added for Panda Board
+  /* It seems few SD cards need some time to recover from this command? */
+  MicroSecondDelay(1000);
+#endif
+  
   if (Status == EFI_SUCCESS) {
     DEBUG((EFI_D_ERROR, "MmcIdentificationMode(MMC_CMD5): Error - SDIO not supported.\n"));
     return EFI_UNSUPPORTED;
