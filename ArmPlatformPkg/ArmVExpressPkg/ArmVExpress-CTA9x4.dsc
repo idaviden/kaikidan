@@ -21,8 +21,8 @@
   PLATFORM_GUID                  = eb2bd5ff-2379-4a06-9c12-db905cdee9ea 
   PLATFORM_VERSION               = 0.1
   DSC_SPECIFICATION              = 0x00010005
-!ifdef $(EDK2_ARMVE_STANDALONE)
-  OUTPUT_DIRECTORY               = Build/ArmVExpress-CTA9x4-Standalone
+!ifdef $(EDK2_OUT_DIR)
+  OUTPUT_DIRECTORY               = $(EDK2_OUT_DIR)
 !else
   OUTPUT_DIRECTORY               = Build/ArmVExpress-CTA9x4
 !endif
