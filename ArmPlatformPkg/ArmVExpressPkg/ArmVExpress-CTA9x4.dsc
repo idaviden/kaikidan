@@ -33,6 +33,9 @@
 !ifndef $(EDK2_ARMVE_STANDALONE)
   DEFINE EDK2_ARMVE_STANDALONE=1
 !endif
+!ifndef $(EDK2_ARMVE_SINGLE_BINARY)
+  DEFINE EDK2_ARMVE_SINGLE_BINARY=1
+!endif
 
 !include ArmPlatformPkg/ArmVExpressPkg/ArmVExpress.dsc.inc
 
