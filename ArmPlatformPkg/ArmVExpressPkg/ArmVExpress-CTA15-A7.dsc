@@ -30,7 +30,9 @@
   BUILD_TARGETS                  = DEBUG|RELEASE
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = ArmPlatformPkg/ArmVExpressPkg/ArmVExpress-CTA15-A7.fdf
+!ifndef $(EDK2_SKIP_PEICORE)
   DEFINE EDK2_SKIP_PEICORE=1
+!endif
 
 !include ArmPlatformPkg/ArmVExpressPkg/ArmVExpress.dsc.inc
 
