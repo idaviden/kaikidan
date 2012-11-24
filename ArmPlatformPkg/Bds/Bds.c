@@ -223,8 +223,10 @@ DefineDefaultBootEntries (
   ARM_BDS_LOADER_ARGUMENTS*           BootArguments;
   ARM_BDS_LOADER_TYPE                 BootType;
   EFI_DEVICE_PATH*                    InitrdPath;
+  EFI_DEVICE_PATH*                    FdtLocalPath;
   UINTN                               CmdLineSize;
   UINTN                               InitrdSize;
+  UINTN                               FdtLocalSize;
 
   //
   // If Boot Order does not exist then create a default entry
@@ -262,17 +264,26 @@ DefineDefaultBootEntries (
     if (BootDevicePath != NULL) {
       BootType = (ARM_BDS_LOADER_TYPE)PcdGet32 (PcdDefaultBootType);
 
-      if ((BootType == BDS_LOADER_KERNEL_LINUX_ATAG) || (BootType == BDS_LOADER_KERNEL_LINUX_FDT)) {
+      if ((BootType == BDS_LOADER_KERNEL_LINUX_ATAG) || (BootType == BDS_LOADER_KERNEL_LINUX_GLOBAL_FDT) || (BootType == BDS_LOADER_KERNEL_LINUX_LOCAL_FDT)) {
         CmdLineSize = AsciiStrSize ((CHAR8*)PcdGetPtr(PcdDefaultBootArgument));
         InitrdPath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdDefaultBootInitrdPath));
         InitrdSize = GetDevicePathSize (InitrdPath);
+        if (BootType == BDS_LOADER_KERNEL_LINUX_LOCAL_FDT) {
+          FdtLocalPath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdDefaultFdtLocalDevicePath));
+          FdtLocalSize = GetDevicePathSize (FdtLocalPath);
+        } else {
+          FdtLocalPath = NULL;
+          FdtLocalSize = 0;
+        }
 
-        BootArguments = (ARM_BDS_LOADER_ARGUMENTS*)AllocatePool (sizeof(ARM_BDS_LOADER_ARGUMENTS) + CmdLineSize + InitrdSize);
+        BootArguments = (ARM_BDS_LOADER_ARGUMENTS*)AllocatePool (sizeof(ARM_BDS_LOADER_ARGUMENTS) + CmdLineSize + InitrdSize + FdtLocalSize);
         BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
         BootArguments->LinuxArguments.InitrdSize = InitrdSize;
+        BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
 
         CopyMem ((VOID*)(BootArguments + 1), (CHAR8*)PcdGetPtr(PcdDefaultBootArgument), CmdLineSize);
         CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
+        CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
       } else {
         BootArguments = NULL;
       }
