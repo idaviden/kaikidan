@@ -48,16 +48,19 @@
 typedef enum {
     BDS_LOADER_EFI_APPLICATION = 0,
     BDS_LOADER_KERNEL_LINUX_ATAG,
-    BDS_LOADER_KERNEL_LINUX_FDT,
+    BDS_LOADER_KERNEL_LINUX_GLOBAL_FDT,
+    BDS_LOADER_KERNEL_LINUX_LOCAL_FDT,
 } ARM_BDS_LOADER_TYPE;
 
 typedef struct {
   UINT16                     CmdLineSize;
   UINT16                     InitrdSize;
-  
+  UINT16                     FdtLocalSize;
+
   // These following fields have variable length and are packed:
   //CHAR8                      *CmdLine;
   //EFI_DEVICE_PATH_PROTOCOL   *InitrdPathList;
+  //EFI_DEVICE_PATH_PROTOCOL   *FdtLocalPathList;
 } ARM_BDS_LINUX_ARGUMENTS;
 
 typedef union {
