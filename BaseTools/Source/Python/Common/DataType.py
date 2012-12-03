@@ -1,7 +1,7 @@
 ## @file
 # This file is used to define common static strings used by INF/DEC/DSC files
 #
-# Copyright (c) 2007 - 2008, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2007 - 2012, Intel Corporation. All rights reserved.<BR>
 # This program and the accompanying materials
 # are licensed and made available under the terms and conditions of the BSD License
 # which accompanies this distribution.  The full text of the license may be found at
@@ -18,6 +18,7 @@ TAB_COMMENT_EDK_START = '/*'
 TAB_COMMENT_EDK_END = '*/'
 TAB_COMMENT_EDK_SPLIT = '//'
 TAB_COMMENT_SPLIT = '#'
+TAB_SPECIAL_COMMENT = '##'
 TAB_EQUAL_SPLIT = '='
 TAB_VALUE_SPLIT = '|'
 TAB_COMMA_SPLIT = ','
@@ -26,10 +27,18 @@ TAB_SEMI_COLON_SPLIT = ';'
 TAB_SECTION_START = '['
 TAB_SECTION_END = ']'
 TAB_OPTION_START = '<'
-TAB_OPTION_END  = '>'
+TAB_OPTION_END = '>'
 TAB_SLASH = '\\'
 TAB_BACK_SLASH = '/'
 TAB_LINE_BREAK = '\n'
+TAB_PRINTCHAR_VT = '\x0b'
+TAB_PRINTCHAR_BS = '\b'
+TAB_PRINTCHAR_NUL = '\0'
+TAB_UINT8 = 'UINT8'
+TAB_UINT16 = 'UINT16'
+TAB_UINT32 = 'UINT32'
+TAB_UINT64 = 'UINT64'
+TAB_VOID = 'VOID*'
 
 TAB_EDK_SOURCE = '$(EDK_SOURCE)'
 TAB_EFI_SOURCE = '$(EFI_SOURCE)'
@@ -75,7 +84,7 @@ EDK_COMPONENT_TYPE_BS_DRIVER = 'BS_DRIVER'
 EDK_COMPONENT_TYPE_RT_DRIVER = 'RT_DRIVER'
 EDK_COMPONENT_TYPE_SAL_RT_DRIVER = 'SAL_RT_DRIVER'
 EDK_COMPONENT_TYPE_APPLICATION = 'APPLICATION'
-EDK_NAME   = 'EDK'
+EDK_NAME = 'EDK'
 EDKII_NAME = 'EDKII'
 
 BINARY_FILE_TYPE_FW = 'FW'
@@ -328,6 +337,25 @@ TAB_INF_FEATURE_PCD = 'FeaturePcd'
 TAB_INF_PATCH_PCD = 'PatchPcd'
 TAB_INF_PCD = 'Pcd'
 TAB_INF_PCD_EX = 'PcdEx'
+TAB_INF_USAGE_PRO = 'PRODUCES'
+TAB_INF_USAGE_SOME_PRO = 'SOMETIMES_PRODUCES'
+TAB_INF_USAGE_CON = 'CONSUMES'
+TAB_INF_USAGE_SOME_CON = 'SOMETIMES_CONSUMES'
+TAB_INF_USAGE_NOTIFY = 'NOTIFY'
+TAB_INF_USAGE_TO_START = 'TO_START'
+TAB_INF_USAGE_BY_START = 'BY_START'
+TAB_INF_GUIDTYPE_EVENT = 'Event'
+TAB_INF_GUIDTYPE_FILE = 'File'
+TAB_INF_GUIDTYPE_FV = 'FV'
+TAB_INF_GUIDTYPE_GUID = 'GUID'
+TAB_INF_GUIDTYPE_HII = 'HII'
+TAB_INF_GUIDTYPE_HOB = 'HOB'
+TAB_INF_GUIDTYPE_ST = 'SystemTable'
+TAB_INF_GUIDTYPE_TSG = 'TokenSpaceGuid'
+TAB_INF_GUIDTYPE_VAR = 'Variable'
+TAB_INF_GUIDTYPE_PROTOCOL = 'PROTOCOL'
+TAB_INF_GUIDTYPE_PPI = 'PPI'
+TAB_INF_GUIDTYPE_UNDEFINED = 'UNDEFINED'
 
 #
 # Dec Definitions
@@ -430,3 +458,22 @@ TAB_BRG_LIBRARY = 'Library'
 # Build Rule File Version Definition
 #
 TAB_BUILD_RULE_VERSION = "build_rule_version"
+
+# section name for PCDs
+PCDS_DYNAMIC_DEFAULT = "PcdsDynamicDefault"
+PCDS_DYNAMIC_VPD = "PcdsDynamicVpd"
+PCDS_DYNAMIC_HII = "PcdsDynamicHii"
+PCDS_DYNAMICEX_DEFAULT = "PcdsDynamicExDefault"
+PCDS_DYNAMICEX_VPD = "PcdsDynamicExVpd"
+PCDS_DYNAMICEX_HII = "PcdsDynamicExHii"
+
+# Section allowed to have items after arch
+SECTIONS_HAVE_ITEM_AFTER_ARCH = [TAB_LIBRARY_CLASSES.upper(), TAB_DEPEX.upper(), TAB_USER_EXTENSIONS.upper(),
+                                 PCDS_DYNAMIC_DEFAULT.upper(),
+                                 PCDS_DYNAMIC_VPD.upper(),
+                                 PCDS_DYNAMIC_HII.upper(),
+                                 PCDS_DYNAMICEX_DEFAULT.upper(),
+                                 PCDS_DYNAMICEX_VPD.upper(),
+                                 PCDS_DYNAMICEX_HII.upper(),
+                                 TAB_BUILD_OPTIONS.upper(),
+                                 TAB_INCLUDES.upper()]

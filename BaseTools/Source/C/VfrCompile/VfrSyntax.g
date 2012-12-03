@@ -494,6 +494,7 @@ vfrFormSetDefinition :
      UINT8       ClassGuidNum = 0;
      CIfrFormSet *FSObj = NULL;
      UINT16      C, SC;
+     CHAR8*      InsertOpcodeAddr = NULL;
   >>
   L:FormSet
   Uuid "=" guidDefinition[Guid] ","
@@ -585,7 +586,34 @@ vfrFormSetDefinition :
                                                         //
                                                         _DeclareDefaultFrameworkVarStore (GET_LINENO(E));
                                                       }
-                                                      CRT_END_OP (E); if (FSObj != NULL) delete FSObj;
+                                                      
+                                                      //
+                                                      // Declare undefined Question so that they can be used in expression.
+                                                      //
+                                                      if (gCFormPkg.HavePendingUnassigned()) {
+                                                        gCFormPkg.DeclarePendingQuestion (
+                                                                    gCVfrVarDataTypeDB,
+                                                                    mCVfrDataStorage,
+                                                                    mCVfrQuestionDB,
+                                                                    &mFormsetGuid,
+                                                                    E->getLine(),
+                                                                    &InsertOpcodeAddr
+                                                                  );
+                                                        gNeedAdjustOpcode = TRUE;
+                                                      }
+
+                                                      CRT_END_OP (E);
+
+                                                      if (gNeedAdjustOpcode) {
+                                                        gCFormPkg.AdjustDynamicInsertOpcode (
+                                                          mLastFormEndAddr,
+                                                          InsertOpcodeAddr
+                                                        );
+                                                      }
+
+                                                      if (FSObj != NULL) {
+                                                        delete FSObj;
+                                                      }
                                                     >>
   ";"
   ;
@@ -1389,23 +1417,7 @@ vfrFormDefinition :
                                                         LObj3.SetNumber (0xffff);  //add end label for UEFI, label number hardcode 0xffff
                                                       }
 
-                                                      //
-                                                      // Declare undefined Question so that they can be used in expression.
-                                                      //
-                                                      if (gCFormPkg.HavePendingUnassigned()) {
-                                                        gCFormPkg.DeclarePendingQuestion (
-                                                                    gCVfrVarDataTypeDB,
-                                                                    mCVfrDataStorage,
-                                                                    mCVfrQuestionDB,
-                                                                    &mFormsetGuid,
-                                                                    E->getLine()
-                                                                  );
-                                                      }
-
-                                                      //
-                                                      // mCVfrQuestionDB.PrintAllQuestion();
-                                                      //
-                                                      CRT_END_OP (E);
+                                                      {CIfrEnd EObj; EObj.SetLineNo (E->getLine()); mLastFormEndAddr = EObj.GetObjBinAddr (); gAdjustOpcodeOffset = EObj.GetObjBinOffset ();}
                                                     >>
   ";"
   ;
@@ -1455,28 +1467,42 @@ vfrStatementDefault :
   <<
      BOOLEAN               IsExp         = FALSE;
      EFI_IFR_TYPE_VALUE    Val           = gZeroEfiIfrTypeValue;
-     CIfrDefault           DObj;
+     CIfrDefault           *DObj         = NULL;
+     CIfrDefault2          *DObj2        = NULL;
      EFI_DEFAULT_ID        DefaultId     = EFI_HII_DEFAULT_CLASS_STANDARD;
      CHAR8                 *VarStoreName = NULL;
      EFI_VFR_VARSTORE_TYPE VarStoreType  = EFI_VFR_VARSTORE_INVALID;
   >>
-  D:Default                                         << DObj.SetLineNo(D->getLine()); >>
+  D:Default                                         
   (
     (
-        vfrStatementValue ","                       << IsExp = TRUE; DObj.SetScope (1); CIfrEnd EndObj1; EndObj1.SetLineNo(D->getLine()); >>
-      | "=" vfrConstantValueField[_GET_CURRQEST_DATATYPE()] > [Val] ","  << 
+      "=" vfrConstantValueField[_GET_CURRQEST_DATATYPE()] > [Val] ","  
+                                                    << 
                                                         if (gCurrentMinMaxData != NULL && gCurrentMinMaxData->IsNumericOpcode()) {
                                                           //check default value is valid for Numeric Opcode
                                                           if (Val.u64 < gCurrentMinMaxData->GetMinData(_GET_CURRQEST_DATATYPE()) || Val.u64 > gCurrentMinMaxData->GetMaxData(_GET_CURRQEST_DATATYPE())) {
                                                             _PCATCH (VFR_RETURN_INVALID_PARAMETER, D->getLine(), "Numeric default value must be between MinValue and MaxValue.");
                                                           }
                                                         }
-                                                        DObj.SetType (_GET_CURRQEST_DATATYPE()); 
-                                                        DObj.SetValue(Val);
+                                                        DObj = new CIfrDefault;
+                                                        DObj->SetLineNo(D->getLine());
+                                                        DObj->SetType (_GET_CURRQEST_DATATYPE()); 
+                                                        DObj->SetValue(Val);
                                                     >>
+      |                                             << IsExp = TRUE; DObj2 = new CIfrDefault2; DObj2->SetLineNo(D->getLine()); DObj2->SetScope (1); >>
+        vfrStatementValue ","                       << CIfrEnd EndObj1; EndObj1.SetLineNo(D->getLine()); >>
     )
     {
-      DefaultStore "=" SN:StringIdentifier ","      << _PCATCH(mCVfrDefaultStore.GetDefaultId (SN->getText(), &DefaultId), SN); DObj.SetDefaultId (DefaultId); >>
+      DefaultStore "=" SN:StringIdentifier ","      << 
+                                                        _PCATCH(mCVfrDefaultStore.GetDefaultId (SN->getText(), &DefaultId), SN); 
+                                                        if (DObj != NULL) {
+                                                          DObj->SetDefaultId (DefaultId); 
+                                                        } 
+
+                                                        if (DObj2 != NULL) {
+                                                          DObj2->SetDefaultId (DefaultId); 
+                                                        }
+                                                    >>
     }
                                                     <<
                                                        _PCATCH(mCVfrDataStorage.GetVarStoreName (_GET_CURRQEST_VARTINFO().mVarStoreId, &VarStoreName), D->getLine());
@@ -1491,6 +1517,9 @@ vfrStatementDefault :
                                                                    D->getLine()
                                                                    );
                                                        }
+
+                                                       if (DObj  != NULL) {delete DObj;} 
+                                                       if (DObj2 != NULL) {delete DObj2;} 
                                                     >>
   )
   ;
@@ -3887,6 +3916,7 @@ private:
 
   EFI_VARSTORE_INFO   mCurrQestVarInfo;
   EFI_GUID            *mOverrideClassGuid;
+  CHAR8*              mLastFormEndAddr;
 
 //
 // For framework vfr compatibility
