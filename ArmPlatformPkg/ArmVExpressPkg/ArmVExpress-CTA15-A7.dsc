@@ -21,12 +21,18 @@
   PLATFORM_GUID                  = 0b511920-978d-4b34-acc0-3d9f8e6f9d81
   PLATFORM_VERSION               = 0.1
   DSC_SPECIFICATION              = 0x00010005
+!ifdef $(EDK2_OUT_DIR)
+  OUTPUT_DIRECTORY               = $(EDK2_OUT_DIR)
+!else
   OUTPUT_DIRECTORY               = Build/ArmVExpress-CTA15-A7
+!endif
   SUPPORTED_ARCHITECTURES        = ARM
   BUILD_TARGETS                  = DEBUG|RELEASE
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = ArmPlatformPkg/ArmVExpressPkg/ArmVExpress-CTA15-A7.fdf
+!ifndef $(EDK2_SKIP_PEICORE)
   DEFINE EDK2_SKIP_PEICORE=1
+!endif
 
 !include ArmPlatformPkg/ArmVExpressPkg/ArmVExpress.dsc.inc
 
@@ -121,8 +127,8 @@
   #  A7_0 = 0x100, GicCoreId = 2
   #  A7_1 = 0x101, GicCoreId = 3
   #  A7_2 = 0x102, GicCoreId = 4
-  gArmTokenSpaceGuid.PcdArmPrimaryCore|0x100
-  gArmTokenSpaceGuid.PcdGicPrimaryCoreId|2
+  gArmTokenSpaceGuid.PcdArmPrimaryCore|0
+  gArmTokenSpaceGuid.PcdGicPrimaryCoreId|0
 !endif
   
   #
