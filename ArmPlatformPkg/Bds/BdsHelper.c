@@ -205,6 +205,9 @@ HasFilePathEfiExtension (
   IN CHAR16* FilePath
   )
 {
+  if (StrCmp (FilePath + (StrSize(FilePath)/sizeof(CHAR16)) - 5, L".EFI") == 0)
+    return 1;
+
   return (StrCmp (FilePath + (StrSize(FilePath)/sizeof(CHAR16)) - 5, L".efi") == 0);
 }
 
