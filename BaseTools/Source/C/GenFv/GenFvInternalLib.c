@@ -506,6 +506,7 @@ Returns:
 
 EFI_STATUS
 AddPadFile (
+  IN FV_INFO          *FvInfo,
   IN OUT MEMORY_FILE  *FvImage,
   IN UINT32           DataAlignment,
   IN VOID             *FvEnd,
@@ -537,6 +538,8 @@ Returns:
 {
   EFI_FFS_FILE_HEADER *PadFile;
   UINTN               PadFileSize;
+  UINTN               PadFileOffset;
+  UINTN               ExtHeaderSize;
 
   //
   // Verify input parameters.
@@ -559,30 +562,27 @@ Returns:
   // This is the earliest possible valid offset (current plus pad file header
   // plus the next file header)
   //
-  PadFileSize = (UINTN) FvImage->CurrentFilePointer - (UINTN) FvImage->FileImage + (sizeof (EFI_FFS_FILE_HEADER) * 2);
+  // The padding is added into its own FFS file (which requires a header) added before the aligned file:
+  // | ... FV data before AlignedFile ... | Pad File FFS Header | Padding | AlignedFile FFS Header (+ ExtHeader) | AlignedData
 
   //
-  // Add whatever it takes to get to the next aligned address
+  // Calculate the Offset of the Pad File from the beginning of the FV file
   //
-  while ((PadFileSize % DataAlignment) != 0) {
-    PadFileSize++;
-  }
-  //
-  // Subtract the next file header size
-  //
-  PadFileSize -= sizeof (EFI_FFS_FILE_HEADER);
-
-  //
-  // Subtract the starting offset to get size
-  //
-  PadFileSize -= (UINTN) FvImage->CurrentFilePointer - (UINTN) FvImage->FileImage;
+  PadFileOffset = (UINTN) FvImage->CurrentFilePointer - (UINTN) FvImage->FileImage;
   
   //
-  // Append extension header size
+  // Get the size of the extension header if exists
   //
   if (ExtHeader != NULL) {
-    PadFileSize = PadFileSize + ExtHeader->ExtHeaderSize;
+    ExtHeaderSize = ExtHeader->ExtHeaderSize;
+  } else {
+    ExtHeaderSize = 0;
   }
+
+  //
+  // Calculate the Size of the Padding to ensure the alignment of the data of the Next file
+  //
+  PadFileSize = DataAlignment - ((FvInfo->BaseAddress + PadFileOffset + sizeof (EFI_FFS_FILE_HEADER) + ExtHeaderSize) & (DataAlignment - 1));
 
   //
   // Verify that we have enough space for the file header
@@ -1115,7 +1115,7 @@ Returns:
   //
   // Add pad file if necessary
   //
-  Status = AddPadFile (FvImage, 1 << CurrentFileAlignment, *VtfFileImage, NULL);
+  Status = AddPadFile (FvInfo, FvImage, 1 << CurrentFileAlignment, *VtfFileImage, NULL);
   if (EFI_ERROR (Status)) {
     Error (NULL, 0, 4002, "Resource", "FV space is full, could not add pad file for data alignment property.");
     free (FileBuffer);
@@ -2304,7 +2304,7 @@ Returns:
     //
     // Add FV Extended Header contents to the FV as a PAD file
     //
-    AddPadFile (&FvImageMemoryFile, 4, VtfFileImage, FvExtHeader);
+    AddPadFile (&mFvDataInfo, &FvImageMemoryFile, 4, VtfFileImage, FvExtHeader);
 
     //
     // Fv Extension header change update Fv Header Check sum
@@ -2825,19 +2825,11 @@ Returns:
   PeFileBuffer       = NULL;
 
   //
-  // Don't need to relocate image when BaseAddress is zero and no ForceRebase Flag specified.
+  // Don't need to relocate image when BaseAddress is not set.
   //
-  if ((FvInfo->BaseAddress == 0) && (FvInfo->ForceRebase == -1)) {
+  if (FvInfo->BaseAddressSet == FALSE) {
     return EFI_SUCCESS;
   }
-  
-  //
-  // If ForceRebase Flag specified to FALSE, will always not take rebase action.
-  //
-  if (FvInfo->ForceRebase == 0) {
-    return EFI_SUCCESS;
-  }
-
 
   XipBase = FvInfo->BaseAddress + XipOffset;
 
