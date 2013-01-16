@@ -16,107 +16,6 @@
 #include "InternalBootScriptLib.h"
 
 /**
-  Checks the parameter of SmbusExecute().
-
-  This function checks the input parameters of SmbusExecute().  If the input parameters are valid
-  for certain SMBus bus protocol, it will return EFI_SUCCESS; otherwise, it will return certain
-  error code based on the input SMBus bus protocol.
-
-  @param  SmBusAddress            Address that encodes the SMBUS Slave Address, SMBUS Command, SMBUS Data Length, 
-                                  and PEC.
-  @param  Operation               Signifies which particular SMBus hardware protocol instance that
-                                  it will use to execute the SMBus transactions. This SMBus
-                                  hardware protocol is defined by the SMBus Specification and is
-                                  not related to EFI.
-  @param  Length                  Signifies the number of bytes that this operation will do. The
-                                  maximum number of bytes can be revision specific and operation
-                                  specific. This field will contain the actual number of bytes that
-                                  are executed for this operation. Not all operations require this
-                                  argument.
-  @param  Buffer                  Contains the value of data to execute to the SMBus slave device.
-                                  Not all operations require this argument. The length of this
-                                  buffer is identified by Length.
-
-  @retval EFI_SUCCESS             All the parameters are valid for the corresponding SMBus bus
-                                  protocol. 
-  @retval EFI_INVALID_PARAMETER   Operation is not defined in EFI_SMBUS_OPERATION.
-  @retval EFI_INVALID_PARAMETER   Length/Buffer is NULL for operations except for EfiSmbusQuickRead
-                                  and EfiSmbusQuickWrite. Length is outside the range of valid
-                                  values.
-  @retval EFI_UNSUPPORTED         The SMBus operation or PEC is not supported.
-  @retval EFI_BUFFER_TOO_SMALL    Buffer is not sufficient for this operation.
-
-**/
-EFI_STATUS
-CheckParameters (
-  IN     UINTN                    SmBusAddress,
-  IN     EFI_SMBUS_OPERATION      Operation,
-  IN OUT UINTN                    *Length,
-  IN OUT VOID                     *Buffer
-  )
-{
-  EFI_STATUS  Status;
-  UINTN       RequiredLen;
-  EFI_SMBUS_DEVICE_COMMAND Command;
-  BOOLEAN                  PecCheck;
- 
-  Command      = SMBUS_LIB_COMMAND (SmBusAddress);
-  PecCheck     = SMBUS_LIB_PEC (SmBusAddress);
-  //
-  // Set default value to be 2:
-  // for SmbusReadWord, SmbusWriteWord and SmbusProcessCall. 
-  //
-  RequiredLen = 2;
-  Status      = EFI_SUCCESS;
-  switch (Operation) {
-    case EfiSmbusQuickRead:
-    case EfiSmbusQuickWrite:
-      if (PecCheck || Command != 0) {
-        return EFI_UNSUPPORTED;
-      }
-      break;
-    case EfiSmbusReceiveByte:
-    case EfiSmbusSendByte:
-      if (Command != 0) {
-        return EFI_UNSUPPORTED;
-      }
-      //
-      // Cascade to check length parameter.
-      //
-    case EfiSmbusReadByte:
-    case EfiSmbusWriteByte:
-      RequiredLen = 1;
-      //
-      // Cascade to check length parameter.
-      //
-    case EfiSmbusReadWord:
-    case EfiSmbusWriteWord:
-    case EfiSmbusProcessCall:
-      if (Buffer == NULL || Length == NULL) {
-        return EFI_INVALID_PARAMETER;
-      } else if (*Length < RequiredLen) {
-        Status = EFI_BUFFER_TOO_SMALL;
-      }
-      *Length = RequiredLen;
-      break;
-    case EfiSmbusReadBlock:
-    case EfiSmbusWriteBlock:
-      if ((Buffer == NULL) || 
-          (Length == NULL) || 
-          (*Length < MIN_SMBUS_BLOCK_LEN) ||
-          (*Length > MAX_SMBUS_BLOCK_LEN)) {
-        return EFI_INVALID_PARAMETER;
-      } 
-      break;
-    case EfiSmbusBWBRProcessCall:
-      return EFI_UNSUPPORTED;
-    default:
-      return EFI_INVALID_PARAMETER;
-  }
-  return Status;
-}
-
-/**
   Executes an SMBus operation to an SMBus controller. Returns when either the command has been
   executed or an error is encountered in doing the operation.
 
@@ -166,13 +65,7 @@ SmbusExecute (
   )
 {
   EFI_STATUS                      Status;
-  UINTN                           WorkBufferLen;
   UINT8                           WorkBuffer[MAX_SMBUS_BLOCK_LEN];
-
-  Status = CheckParameters (SmbusAddress, Operation, Length, Buffer);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
 
   switch (Operation) {
     case EfiSmbusQuickRead:
@@ -185,15 +78,15 @@ SmbusExecute (
       break;
     case EfiSmbusReceiveByte:
       DEBUG ((EFI_D_INFO, "EfiSmbusReceiveByte - 0x%08x\n", SmbusAddress));
-      *(UINT8 *) Buffer = SmBusReceiveByte (SmbusAddress, &Status);
+      SmBusReceiveByte (SmbusAddress, &Status);
       break;
     case EfiSmbusSendByte:
-      DEBUG ((EFI_D_INFO, "EfiSmbusReceiveByte - 0x%08x (0x%02x)\n", SmbusAddress, (UINTN)*(UINT8 *) Buffer));
+      DEBUG ((EFI_D_INFO, "EfiSmbusSendByte - 0x%08x (0x%02x)\n", SmbusAddress, (UINTN)*(UINT8 *) Buffer));
       SmBusSendByte (SmbusAddress, *(UINT8 *) Buffer, &Status);
       break;
     case EfiSmbusReadByte:
       DEBUG ((EFI_D_INFO, "EfiSmbusReadByte - 0x%08x\n", SmbusAddress));
-      *(UINT8 *) Buffer = SmBusReadDataByte (SmbusAddress, &Status);
+      SmBusReadDataByte (SmbusAddress, &Status);
       break;
     case EfiSmbusWriteByte:
       DEBUG ((EFI_D_INFO, "EfiSmbusWriteByte - 0x%08x (0x%02x)\n", SmbusAddress, (UINTN)*(UINT8 *) Buffer));
@@ -201,41 +94,30 @@ SmbusExecute (
       break;
     case EfiSmbusReadWord:
       DEBUG ((EFI_D_INFO, "EfiSmbusReadWord - 0x%08x\n", SmbusAddress));
-      *(UINT16 *) Buffer = SmBusReadDataWord (SmbusAddress, &Status);
+      SmBusReadDataWord (SmbusAddress, &Status);
       break;
     case EfiSmbusWriteWord:
-      DEBUG ((EFI_D_INFO, "EfiSmbusWriteByte - 0x%08x (0x%04x)\n", SmbusAddress, (UINTN)*(UINT16 *) Buffer));
+      DEBUG ((EFI_D_INFO, "EfiSmbusWriteWord - 0x%08x (0x%04x)\n", SmbusAddress, (UINTN)*(UINT16 *) Buffer));
       SmBusWriteDataWord (SmbusAddress, *(UINT16 *) Buffer, &Status);
       break;
     case EfiSmbusProcessCall:
       DEBUG ((EFI_D_INFO, "EfiSmbusProcessCall - 0x%08x (0x%04x)\n", SmbusAddress, (UINTN)*(UINT16 *) Buffer));
-      *(UINT16 *) Buffer = SmBusProcessCall (SmbusAddress, *(UINT16 *) Buffer, &Status);
+      SmBusProcessCall (SmbusAddress, *(UINT16 *) Buffer, &Status);
       break;
     case EfiSmbusReadBlock:
       DEBUG ((EFI_D_INFO, "EfiSmbusReadBlock - 0x%08x\n", SmbusAddress));
-      WorkBufferLen = SmBusReadBlock (SmbusAddress, WorkBuffer, &Status);
-      if (!EFI_ERROR (Status)) {
-        //
-        // Read block transaction is complete successfully, and then
-        // check whether the output buffer is large enough.  
-        //
-        if (*Length >= WorkBufferLen) {
-          CopyMem (Buffer, WorkBuffer, WorkBufferLen);
-        } else {
-          Status = EFI_BUFFER_TOO_SMALL;
-        }
-        *Length = WorkBufferLen;
-      }
+      SmBusReadBlock (SmbusAddress, WorkBuffer, &Status);
       break;
     case EfiSmbusWriteBlock:
-      DEBUG ((EFI_D_INFO, "EfiSmbusWriteBlock - 0x%08x (0x%04x)\n", SmbusAddress, (UINTN)*(UINT16 *) Buffer));
-      SmBusWriteBlock ((SmbusAddress + SMBUS_LIB_ADDRESS (0, 0, (*Length), FALSE))  , Buffer, &Status);
+      DEBUG ((EFI_D_INFO, "EfiSmbusWriteBlock - 0x%08x\n", SmbusAddress));
+      SmBusWriteBlock ((SmbusAddress + SMBUS_LIB_ADDRESS (0, 0, (*Length), FALSE)), Buffer, &Status);
       break;
     case EfiSmbusBWBRProcessCall:
-      //
-      // BUGBUG: Should this case be handled?
-      //
+      DEBUG ((EFI_D_INFO, "EfiSmbusBWBRProcessCall - 0x%08x\n", SmbusAddress));
+      SmBusBlockProcessCall ((SmbusAddress + SMBUS_LIB_ADDRESS (0, 0, (*Length), FALSE)), Buffer, WorkBuffer, &Status);
       break;
+    default:
+      return EFI_INVALID_PARAMETER;
   }
 
   return Status;  
@@ -287,7 +169,7 @@ BuildLoopData (
 }
 
 /**
-  Translates boot script to MDE library interface.
+  Perform IO read operation
   
   @param[in]  Width   Width of the operation.
   @param[in]  Address Address of the operation.
@@ -331,24 +213,55 @@ ScriptIoRead (
     switch (Width) {
 
     case S3BootScriptWidthUint8:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint8 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint8 = IoRead8 ((UINTN) Address);
+      break;
     case S3BootScriptWidthFifoUint8:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint8 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint8 = IoRead8 ((UINTN) Address);
+      break;
     case S3BootScriptWidthFillUint8:
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint8Read - 0x%08x\n", Address));
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint8 - 0x%08x\n", (UINTN) Address));
       *Out.Uint8 = IoRead8 ((UINTN) Address);
       break;
 
     case S3BootScriptWidthUint16:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint16 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint16 = IoRead16 ((UINTN) Address);
+      break;
     case S3BootScriptWidthFifoUint16:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint16 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint16 = IoRead16 ((UINTN) Address);
+      break;
     case S3BootScriptWidthFillUint16:
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint16Read - 0x%08x\n", Address));
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint16 - 0x%08x\n", (UINTN) Address));
       *Out.Uint16 = IoRead16 ((UINTN) Address);
       break;
 
     case S3BootScriptWidthUint32:
-    case S3BootScriptWidthFifoUint32:
-    case S3BootScriptWidthFillUint32:
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint32Read - 0x%08x\n", Address));
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint32 - 0x%08x\n", (UINTN) Address));
       *Out.Uint32 = IoRead32 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFifoUint32:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint32 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint32 = IoRead32 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFillUint32:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint32 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint32 = IoRead32 ((UINTN) Address);
+      break;
+
+    case S3BootScriptWidthUint64:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint64 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint64 = IoRead64 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFifoUint64:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint64 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint64 = IoRead64 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFillUint64:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint64 - 0x%08x\n", (UINTN) Address));
+      *Out.Uint64 = IoRead64 ((UINTN) Address);
       break;
 
     default:
@@ -360,7 +273,7 @@ ScriptIoRead (
 }
 
 /**
-  Perform a write operation
+  Perform IO write operation
   
   @param[in]  Width Width of the operation.
   @param[in]  Address Address of the operation.
@@ -463,7 +376,7 @@ ScriptIoWrite (
   return EFI_SUCCESS;
 }
 /**
-  Interprete the IO write entry in S3 boot script and perform the write operation
+  Interprete the boot script node with EFI_BOOT_SCRIPT_IO_WRITE OP code.
   
   @param Script       Pointer to the node which is to be interpreted.
 
@@ -490,7 +403,8 @@ BootScriptExecuteIoWrite (
   Address = IoWrite.Address;
   Count = IoWrite.Count;
   Buffer = Script + sizeof (EFI_BOOT_SCRIPT_IO_WRITE);
-  
+
+  DEBUG ((EFI_D_INFO, "BootScriptExecuteIoWrite - 0x%08x, 0x%08x, 0x%08x\n", (UINTN)Address, Count, (UINTN)Width));
   return ScriptIoWrite(Width, Address, Count, Buffer);
 }
 /**
@@ -534,30 +448,54 @@ ScriptMemoryRead (
   for (; Count > 0; Count--, Address += AddressStride, Out.Buf += BufferStride) {
     switch (Width) {
     case S3BootScriptWidthUint8:
-    case S3BootScriptWidthFifoUint8:
-    case S3BootScriptWidthFillUint8:
       DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint8 - 0x%08x\n", (UINTN)Address));
+      *Out.Uint8 = MmioRead8 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFifoUint8:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint8 - 0x%08x\n", (UINTN)Address));
+      *Out.Uint8 = MmioRead8 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFillUint8:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint8 - 0x%08x\n", (UINTN)Address));
       *Out.Uint8 = MmioRead8 ((UINTN) Address);
       break;
 
     case S3BootScriptWidthUint16:
-    case S3BootScriptWidthFifoUint16:
-    case S3BootScriptWidthFillUint16:
       DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint16 - 0x%08x\n", (UINTN)Address));
+      *Out.Uint16 = MmioRead16 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFifoUint16:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint16 - 0x%08x\n", (UINTN)Address));
+      *Out.Uint16 = MmioRead16 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFillUint16:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint16 - 0x%08x\n", (UINTN)Address));
       *Out.Uint16 = MmioRead16 ((UINTN) Address);
       break;
 
     case S3BootScriptWidthUint32:
-    case S3BootScriptWidthFifoUint32:
-    case S3BootScriptWidthFillUint32:
       DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint32 - 0x%08x\n", (UINTN)Address));
+      *Out.Uint32 = MmioRead32 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFifoUint32:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint32 - 0x%08x\n", (UINTN)Address));
+      *Out.Uint32 = MmioRead32 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFillUint32:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint32 - 0x%08x\n", (UINTN)Address));
       *Out.Uint32 = MmioRead32 ((UINTN) Address);
       break;
 
     case S3BootScriptWidthUint64:
-    case S3BootScriptWidthFifoUint64:
-    case S3BootScriptWidthFillUint64:
       DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint64 - 0x%08x\n", (UINTN)Address));
+      *Out.Uint64 = MmioRead64 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFifoUint64:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint64 - 0x%08x\n", (UINTN)Address));
+      *Out.Uint64 = MmioRead64 ((UINTN) Address);
+      break;
+    case S3BootScriptWidthFillUint64:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint64 - 0x%08x\n", (UINTN)Address));
       *Out.Uint64 = MmioRead64 ((UINTN) Address);
       break;
 
@@ -569,7 +507,7 @@ ScriptMemoryRead (
   return EFI_SUCCESS;
 }
 /**
-  Translates boot script to MDE library interface.
+  Perform memory write operation
   
   @param   Width   Width of the operation.
   @param   Address Address of the operation.
@@ -696,99 +634,190 @@ BootScriptExecuteMemoryWrite (
   Count   = MemWrite.Count;
   Buffer  = Script + sizeof(EFI_BOOT_SCRIPT_MEM_WRITE);
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecuteMemoryWrite - 0x%08x, 0x%08x, 0x%08x\n", (UINTN)Address, (UINTN)Count, (UINTN)Width));
+  DEBUG ((EFI_D_INFO, "BootScriptExecuteMemoryWrite - 0x%08x, 0x%08x, 0x%08x\n", (UINTN)Address, Count, (UINTN)Width));
   return ScriptMemoryWrite (Width,Address, Count,  Buffer);
   
 }  
 /**
-  Translates boot script to MDE library interface for PCI configuration read operation
+  Performance PCI configuration read operation
 
   @param  Width   Width of the operation.
   @param  Address Address of the operation.
-  @param  Buffer  Pointer to the buffer reaf from PCI config space
+  @param  Count   Count of the number of accesses to perform.
+  @param  Buffer  Pointer to the buffer read from PCI config space
   
   @retval EFI_SUCCESS The read succeed.
   @retval EFI_INVALID_PARAMETER if Width is not defined  
-                                
+  @note  A known Limitations in the implementation which is 64bits operations are not supported.
+
 **/
 EFI_STATUS
 ScriptPciCfgRead (
   IN  S3_BOOT_SCRIPT_LIB_WIDTH    Width,
   IN  UINT64                       Address,
+  IN  UINTN                        Count,
   OUT VOID                        *Buffer
   )
 {
+  EFI_STATUS  Status;
+  UINTN       AddressStride;
+  UINTN       BufferStride;
+  PTR         Out;
+  UINTN       PciAddress;
+
+  Out.Buf = (UINT8 *) Buffer;
+
+  PciAddress = PCI_ADDRESS_ENCODE (Address);
+
+  Status = BuildLoopData (Width, PciAddress, &AddressStride, &BufferStride);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+  //
+  // Loop for each iteration and move the data
+  //
+  for (; Count > 0; Count--, PciAddress += AddressStride, Out.Buf += BufferStride) {
     switch (Width) {
     case S3BootScriptWidthUint8:
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint8 - 0x%016lx\n", Address));
-      * (UINT8 *) Buffer = PciRead8 (PCI_ADDRESS_ENCODE(Address));
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint8 - 0x%08x\n", PciAddress));
+      *Out.Uint8 = PciRead8 (PciAddress);
+      break;
+    case S3BootScriptWidthFifoUint8:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint8 - 0x%08x\n", PciAddress));
+      *Out.Uint8 = PciRead8 (PciAddress);
+      break;
+    case S3BootScriptWidthFillUint8:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint8 - 0x%08x\n", PciAddress));
+      *Out.Uint8 = PciRead8 (PciAddress);
       break;
 
     case S3BootScriptWidthUint16:
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint16 - 0x%016lx\n", Address));
-      * (UINT16 *) Buffer = PciRead16 (PCI_ADDRESS_ENCODE(Address));
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint16 - 0x%08x\n", PciAddress));
+      *Out.Uint16 = PciRead16 (PciAddress);
+      break;
+    case S3BootScriptWidthFifoUint16:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint16 - 0x%08x\n", PciAddress));
+      *Out.Uint16 = PciRead16 (PciAddress);
+      break;
+    case S3BootScriptWidthFillUint16:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint16 - 0x%08x\n", PciAddress));
+      *Out.Uint16 = PciRead16 (PciAddress);
       break;
 
     case S3BootScriptWidthUint32:
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint32 - 0x%016lx\n", Address));
-      * (UINT32 *) Buffer = PciRead32 (PCI_ADDRESS_ENCODE(Address));
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint32 - 0x%08x\n", PciAddress));
+      *Out.Uint32 = PciRead32 (PciAddress);
+      break;
+    case S3BootScriptWidthFifoUint32:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint32 - 0x%08x\n", PciAddress));
+      *Out.Uint32 = PciRead32 (PciAddress);
+      break;
+    case S3BootScriptWidthFillUint32:
+      DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint32 - 0x%08x\n", PciAddress));
+      *Out.Uint32 = PciRead32 (PciAddress);
       break;
 
     default:
       return EFI_INVALID_PARAMETER;
+    }
   }
-    return EFI_SUCCESS;
+  return EFI_SUCCESS;
 }
 
 /**
-  Translates boot script to MDE library interface for PCI configuration write operation
+  Performance PCI configuration write operation
 
   @param  Width   Width of the operation.
   @param  Address Address of the operation.
-  @param  Buffer  Pointer to the buffer reaf from PCI config space
+  @param  Count   Count of the number of accesses to perform.
+  @param  Buffer  Pointer to the buffer write to PCI config space
   
   @retval EFI_SUCCESS The write succeed.
   @retval EFI_INVALID_PARAMETER if Width is not defined  
-                                
+  @note  A known Limitations in the implementation which is 64bits operations are not supported.
+
 **/
 EFI_STATUS
 ScriptPciCfgWrite (
   IN  S3_BOOT_SCRIPT_LIB_WIDTH     Width,
   IN  UINT64                       Address,
-  OUT VOID                         *Buffer
+  IN  UINTN                        Count,
+  IN  VOID                         *Buffer
   )
 {
-  switch (Width) {
-    case S3BootScriptWidthUint8:
-    case S3BootScriptWidthFifoUint8:
-    case S3BootScriptWidthFillUint8:      
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint8 - 0x%016lx (0x%02x)\n", Address, (UINTN)*(UINT8 *) Buffer));
-      PciWrite8 (PCI_ADDRESS_ENCODE(Address), *(UINT8 *) Buffer);
-      break;
-    case S3BootScriptWidthUint16:
-    case S3BootScriptWidthFifoUint16:
-    case S3BootScriptWidthFillUint16:       
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint16 - 0x%016lx (0x%04x)\n", Address, (UINTN)*(UINT16 *) Buffer));
-      PciWrite16 (PCI_ADDRESS_ENCODE(Address), *(UINT16 *) Buffer);
-      break;
-    case S3BootScriptWidthUint32:
-    case S3BootScriptWidthFifoUint32:
-    case S3BootScriptWidthFillUint32:       
-      DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint32 - 0x%016lx (0x%08x)\n", Address, (UINTN)*(UINT32 *) Buffer));
-      PciWrite32 (PCI_ADDRESS_ENCODE(Address), *(UINT32 *) Buffer);
-      break;
-    default:
-      return EFI_INVALID_PARAMETER;
+  EFI_STATUS  Status;
+  UINTN       AddressStride;
+  UINTN       BufferStride;
+  UINTN       OriginalPciAddress;
+  PTR         In;
+  PTR         OriginalIn;
+  UINTN       PciAddress;
+
+  In.Buf = (UINT8 *) Buffer;
+
+  PciAddress = PCI_ADDRESS_ENCODE (Address);
+
+  Status = BuildLoopData (Width, PciAddress, &AddressStride, &BufferStride);
+  if (EFI_ERROR (Status)) {
+    return Status;
   }
-    return EFI_SUCCESS;
+  //
+  // Loop for each iteration and move the data
+  //
+  OriginalPciAddress = PciAddress;
+  OriginalIn.Buf = In.Buf;
+  for (; Count > 0; Count--, PciAddress += AddressStride, In.Buf += BufferStride) {
+    switch (Width) {
+      case S3BootScriptWidthUint8:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint8 - 0x%08x (0x%02x)\n", PciAddress, (UINTN)*In.Uint8));
+        PciWrite8 (PciAddress, *In.Uint8);
+        break;      
+      case S3BootScriptWidthFifoUint8:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint8 - 0x%08x (0x%02x)\n", OriginalPciAddress, (UINTN)*In.Uint8));
+        PciWrite8 (OriginalPciAddress, *In.Uint8);
+        break;      
+      case S3BootScriptWidthFillUint8:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint8 - 0x%08x (0x%02x)\n", PciAddress, (UINTN)*OriginalIn.Uint8));
+        PciWrite8 (PciAddress, *OriginalIn.Uint8);
+        break;
+      case S3BootScriptWidthUint16:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint16 - 0x%08x (0x%04x)\n", PciAddress, (UINTN)*In.Uint16));
+        PciWrite16 (PciAddress, *In.Uint16);
+        break;      
+      case S3BootScriptWidthFifoUint16:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint16 - 0x%08x (0x%04x)\n", OriginalPciAddress, (UINTN)*In.Uint16));
+        PciWrite16 (OriginalPciAddress, *In.Uint16);
+        break;      
+      case S3BootScriptWidthFillUint16:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint16 - 0x%08x (0x%04x)\n", PciAddress, (UINTN)*OriginalIn.Uint16));
+        PciWrite16 (PciAddress, *OriginalIn.Uint16);
+        break;
+      case S3BootScriptWidthUint32:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthUint32 - 0x%08x (0x%08x)\n", PciAddress, (UINTN)*In.Uint32));
+        PciWrite32 (PciAddress, *In.Uint32);
+        break;      
+      case S3BootScriptWidthFifoUint32:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthFifoUint32 - 0x%08x (0x%08x)\n", OriginalPciAddress, (UINTN)*In.Uint32));
+        PciWrite32 (OriginalPciAddress, *In.Uint32);
+        break;      
+      case S3BootScriptWidthFillUint32:
+        DEBUG ((EFI_D_INFO, "S3BootScriptWidthFillUint32 - 0x%08x (0x%08x)\n", (UINTN)PciAddress, (UINTN)*OriginalIn.Uint32));
+        PciWrite32 (PciAddress, *OriginalIn.Uint32);
+        break;
+      default:
+        return EFI_INVALID_PARAMETER;
+    }
+  }
+  return EFI_SUCCESS;
 }
 /**
-  Perform pci configure 2 read operation.
+  Performance PCI configuration 2 read operation
   
   @param     Width                      Width of the operation.
   @param     Segment                    Pci segment number
   @param     Address                    Address of the operation.
-  @param     Buffer                     Pointer to the buffer to write to I/O space.  
+  @param     Count                      Count of the number of accesses to perform.
+  @param     Buffer                     Pointer to the buffer to read from PCI config space.
 
   @retval    EFI_SUCCESS                The data was written to the EFI System.
   @retval    EFI_INVALID_PARAMETER      Width is invalid for this EFI System.
@@ -803,20 +832,22 @@ ScriptPciCfg2Read (
   IN  S3_BOOT_SCRIPT_LIB_WIDTH    Width,
   IN  UINT16                   Segment,  
   IN  UINT64                   Address,
+  IN  UINTN                    Count,
   OUT VOID                     *Buffer
   )
 {
   ASSERT (Segment==0);
   
-  return ScriptPciCfgRead (Width, Address, Buffer);
+  return ScriptPciCfgRead (Width, Address, Count, Buffer);
 }
 /**
-  Perform pci configure write operation.
+  Performance PCI configuration 2 write operation
   
   @param     Width                      Width of the operation.
   @param     Segment                    Pci segment number
   @param     Address                    Address of the operation.
-  @param     Buffer                     Pointer to the buffer to write to I/O space.  
+  @param     Count                      Count of the number of accesses to perform.
+  @param     Buffer                     Pointer to the buffer to write to PCI config space.
 
   @retval    EFI_SUCCESS                The data was written to the EFI System.
   @retval    EFI_INVALID_PARAMETER      Width is invalid for this EFI System.
@@ -833,14 +864,15 @@ ScriptPciCfg2Write (
   IN  S3_BOOT_SCRIPT_LIB_WIDTH    Width,
   IN  UINT16                   Segment,  
   IN  UINT64                   Address,
-  OUT VOID                     *Buffer
+  IN  UINTN                    Count,
+  IN  VOID                     *Buffer
   )
 {
   ASSERT (Segment==0);
-  return ScriptPciCfgWrite (Width, Address, Buffer);
+  return ScriptPciCfgWrite (Width, Address, Count, Buffer);
 }
 /**
-  Perform Pci configuration Write operation.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_PCI_CONFIG_WRITE OP code.
   
   @param  Script        The pointer of typed node in boot script table 
   
@@ -851,50 +883,24 @@ BootScriptExecutePciCfgWrite (
   IN UINT8                    *Script
   )
 {
-  EFI_STATUS  Status;
-  UINT8       *Buffer;
-  UINTN       DataWidth;
-  UINTN       Index;
-  UINT64      PciAddress;
-  UINT8       Reg;
-  EFI_BOOT_SCRIPT_PCI_CONFIG_WRITE  PciConfigWrite;
+  VOID                              *Buffer;
+  S3_BOOT_SCRIPT_LIB_WIDTH          Width;
+  UINT64                            Address;
+  UINTN                             Count;
+  EFI_BOOT_SCRIPT_PCI_CONFIG_WRITE  PciCfgWrite;
 
-  CopyMem ((VOID*)&PciConfigWrite, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG_WRITE));
-  Status      = EFI_SUCCESS;
+  CopyMem ((VOID*)&PciCfgWrite, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG_WRITE));
 
-  PciAddress  = PciConfigWrite.Address;
-  DataWidth   = (UINT32)(0x01 << (PciConfigWrite.Width));
-  Buffer      = Script + sizeof (EFI_BOOT_SCRIPT_PCI_CONFIG_WRITE);
+  Width   = (S3_BOOT_SCRIPT_LIB_WIDTH)PciCfgWrite.Width;
+  Address = PciCfgWrite.Address;
+  Count   = PciCfgWrite.Count;
+  Buffer  = Script + sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG_WRITE);
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecutePciCfgWrite - 0x%08x, 0x%08x, 0x%08x\n", (UINTN)PciAddress, (UINTN)PciConfigWrite.Count, (UINTN)DataWidth));
-
-  for (Index = 0; Index < PciConfigWrite.Count; Index++) {
-    Status = ScriptPciCfgWrite (
-               (S3_BOOT_SCRIPT_LIB_WIDTH) PciConfigWrite.Width,
-               PciAddress,
-               Buffer
-               );
-
-   if ( S3BootScriptWidthFillUint8 !=  PciConfigWrite.Width ||
-        S3BootScriptWidthFillUint16 != PciConfigWrite.Width || 
-        S3BootScriptWidthFillUint32 != PciConfigWrite.Width ||
-        S3BootScriptWidthFillUint64 != PciConfigWrite.Width){
-      Reg         = (UINT8) ((UINT8) PciAddress + DataWidth);
-      PciAddress  = (PciAddress & 0xFFFFFFFFFFFFFF00ULL) + Reg;
-    }
-
-    if (S3BootScriptWidthFifoUint8 != PciConfigWrite.Width ||
-        S3BootScriptWidthFifoUint16 != PciConfigWrite.Width || 
-        S3BootScriptWidthFifoUint32 != PciConfigWrite.Width ||
-        S3BootScriptWidthFifoUint64 != PciConfigWrite.Width) {
-      Buffer += DataWidth;
-    }
-  }
-
-  return Status;
+  DEBUG ((EFI_D_INFO, "BootScriptExecutePciCfgWrite - 0x%08x, 0x%08x, 0x%08x\n", PCI_ADDRESS_ENCODE (Address), Count, (UINTN)Width));
+  return ScriptPciCfgWrite (Width, Address, Count, Buffer);
 }
 /**
-  Excute the script to perform IO modification operation.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_IO_READ_WRITE OP code.
 
   @param Script   The pointer of typed node in boot script table 
   @param AndMask  Mask value for 'and' operation
@@ -918,7 +924,7 @@ BootScriptExecuteIoReadWrite (
   
   CopyMem((VOID*)&IoReadWrite, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_IO_READ_WRITE));
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecuteIoReadWrite - 0x%08x, 0x%016lx, 0x%016lx\n", (UINTN)IoReadWrite.Address, (UINT64)AndMask, (UINT64)OrMask));
+  DEBUG ((EFI_D_INFO, "BootScriptExecuteIoReadWrite - 0x%08x, 0x%016lx, 0x%016lx\n", (UINTN)IoReadWrite.Address, AndMask, OrMask));
 
   Status = ScriptIoRead (
              (S3_BOOT_SCRIPT_LIB_WIDTH) IoReadWrite.Width,
@@ -938,7 +944,7 @@ BootScriptExecuteIoReadWrite (
   return Status;
 }
 /**
-  Excute the script to perform memory modification operation.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_MEM_READ_WRITE OP code.
 
   @param Script    The pointer of typed node in boot script table 
   @param AndMask   Mask value for 'and' operation
@@ -962,7 +968,7 @@ BootScriptExecuteMemoryReadWrite (
   
   CopyMem((VOID*)&MemReadWrite, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_MEM_READ_WRITE));
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecuteMemoryReadWrite - 0x%08x, 0x%016lx, 0x%016lx\n", (UINTN)MemReadWrite.Address, (UINT64)AndMask, (UINT64)OrMask));
+  DEBUG ((EFI_D_INFO, "BootScriptExecuteMemoryReadWrite - 0x%08x, 0x%016lx, 0x%016lx\n", (UINTN)MemReadWrite.Address, AndMask, OrMask));
   
   Status = ScriptMemoryRead (
              (S3_BOOT_SCRIPT_LIB_WIDTH) MemReadWrite.Width,
@@ -982,7 +988,7 @@ BootScriptExecuteMemoryReadWrite (
   return Status;
 }
 /**
-  Excute the script to perform PCI IO modification operation.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_PCI_CFG_READ_WRITE OP code.
 
   @param Script   The pointer of typed node in boot script table 
   @param AndMask  Mask value for 'and' operation
@@ -1001,14 +1007,17 @@ BootScriptExecutePciCfgReadWrite (
   EFI_STATUS  Status;
   UINT64      Data;
   EFI_BOOT_SCRIPT_PCI_CONFIG_READ_WRITE  PciCfgReadWrite;
-  
+
+  Data = 0;
+
   CopyMem((VOID*)&PciCfgReadWrite, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG_READ_WRITE));
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecutePciCfgReadWrite - 0x%08x, 0x%016lx, 0x%016lx\n", (UINTN)PciCfgReadWrite.Address, (UINT64)AndMask, (UINT64)OrMask));
+  DEBUG ((EFI_D_INFO, "BootScriptExecutePciCfgReadWrite - 0x%08x, 0x%016lx, 0x%016lx\n", PCI_ADDRESS_ENCODE (PciCfgReadWrite.Address), AndMask, OrMask));
   
   Status = ScriptPciCfgRead (
              (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfgReadWrite.Width,
              PciCfgReadWrite.Address,
+             1,
              &Data
              );
   if (EFI_ERROR (Status)) {
@@ -1020,13 +1029,14 @@ BootScriptExecutePciCfgReadWrite (
   Status = ScriptPciCfgWrite (
              (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfgReadWrite.Width,
              PciCfgReadWrite.Address,
+             1,
              &Data
              );
 
   return Status;
 }
 /**
-  To Execute SMBUS command. 
+  Interprete the boot script node with EFI_BOOT_SCRIPT_SMBUS_EXECUTE OP code.
 
   @param Script  The pointer of typed node in boot script table 
  
@@ -1057,7 +1067,7 @@ BootScriptExecuteSmbusExecute (
            );
 }
 /**
-  Execute stall operation in boot script table.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_STALL OP code.
 
   @param Script      The pointer of typed node in boot script table 
   
@@ -1078,10 +1088,10 @@ BootScriptExecuteStall (
   return EFI_SUCCESS;
 }
 /**
- To execute assigned function.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_DISPATCH OP code.
   
- @param Script  The pointer of typed node in boot script table 
- @retval EFI_SUCCESS  The operation was executed successfully
+  @param Script  The pointer of typed node in boot script table 
+  @retval EFI_SUCCESS  The operation was executed successfully
 **/
 EFI_STATUS
 BootScriptExecuteDispatch (
@@ -1102,7 +1112,7 @@ BootScriptExecuteDispatch (
   return Status;
 }
 /**
-  Execute dispach2 opertion code which is to invoke a spcified function with one parameter. 
+  Interprete the boot script node with EFI_BOOT_SCRIPT_DISPATCH_2 OP code.
 
   @param  Script       The pointer of typed node in boot script table 
   @retval EFI_SUCCESS  The operation was executed successfully
@@ -1127,7 +1137,7 @@ BootScriptExecuteDispatch2 (
   return Status;
 }
 /**
-  Excute the script to poll memory.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_MEM_POLL OP code.
 
   @param  Script  The pointer of typed node in boot script table 
   @param  AndMask  Mask value for 'and' operation
@@ -1152,7 +1162,7 @@ BootScriptExecuteMemPoll (
   
   CopyMem ((VOID*)&MemPoll, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_MEM_POLL));
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecuteMemPoll - 0x%08x\n", (UINTN)MemPoll.Address));
+  DEBUG ((EFI_D_INFO, "BootScriptExecuteMemPoll - 0x%08x, 0x%016lx, 0x%016lx\n", (UINTN)MemPoll.Address, AndMask, OrMask));
 
   Data = 0;
   Status = ScriptMemoryRead (
@@ -1187,7 +1197,7 @@ BootScriptExecuteMemPoll (
   }
 }
 /**
-  Execute the boot script to interpret the  Store arbitrary information. 
+  Execute the boot script to interpret the Store arbitrary information.
   This opcode is a no-op on dispatch and is only used for debugging script issues.
 
   @param Script       The pointer of node in boot script table 
@@ -1328,7 +1338,7 @@ CheckAndOrMask (
   return;
 }
 /**
-  Excute the script to poll Io port for some time
+  Interprete the boot script node with EFI_BOOT_SCRIPT_IO_POLL OP code.
 
   @param  Script  The pointer of typed node in boot script table 
   @param  AndMask  Mask value for 'and' operation
@@ -1352,7 +1362,7 @@ BootScriptExecuteIoPoll (
   
   CopyMem ((VOID*)&IoPoll, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_IO_POLL));
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecuteIoPoll - 0x%08x\n", (UINTN)IoPoll.Address));
+  DEBUG ((EFI_D_INFO, "BootScriptExecuteIoPoll - 0x%08x, 0x%016lx, 0x%016lx\n", (UINTN)IoPoll.Address, AndMask, OrMask));
 
   Data = 0;
   Status = ScriptIoRead (
@@ -1385,7 +1395,7 @@ BootScriptExecuteIoPoll (
   }
 }
 /**
-  Perform Pci configuration Write operation.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_PCI_CONFIG2_WRITE OP code.
 
   @param    Script              The pointer of S3 boot script
 
@@ -1397,52 +1407,28 @@ BootScriptExecutePciCfg2Write (
   IN UINT8             *Script
   )
 {
-  UINT8       Reg;
-  UINT8       *Buffer;
-  UINTN       DataWidth;
-  UINTN       Index;
-  UINT16      Segment;
-  UINT64      PciAddress;
-  EFI_STATUS  Status;
-  EFI_BOOT_SCRIPT_PCI_CONFIG2_WRITE  PciCfg2Write;
+  VOID                              *Buffer;
+  S3_BOOT_SCRIPT_LIB_WIDTH          Width;
+  UINT16                            Segment;
+  UINT64                            Address;
+  UINTN                             Count;
+  EFI_BOOT_SCRIPT_PCI_CONFIG2_WRITE PciCfg2Write;
   
   CopyMem ((VOID*)&PciCfg2Write, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG2_WRITE));
-  Status      = EFI_SUCCESS;
-  Segment     = PciCfg2Write.Segment;
-  PciAddress  = PciCfg2Write.Address;
-  DataWidth   = (UINT32)(0x01 << (PciCfg2Write.Width));
-  Buffer      = Script + sizeof (EFI_BOOT_SCRIPT_PCI_CONFIG2_WRITE);
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecutePciCfg2Write - 0x%08x\n", (UINTN)PciAddress));
+  Width   = (S3_BOOT_SCRIPT_LIB_WIDTH)PciCfg2Write.Width;
+  Segment = PciCfg2Write.Segment;
+  Address = PciCfg2Write.Address;
+  Count   = PciCfg2Write.Count;
+  Buffer  = Script + sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG2_WRITE);
 
-  for (Index = 0; Index < PciCfg2Write.Count; Index++) {
-    Status = ScriptPciCfg2Write (
-               (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfg2Write.Width,
-               Segment,
-               PciAddress,
-               Buffer
-               );
-    if (S3BootScriptWidthFillUint8  != PciCfg2Write.Width ||
-        S3BootScriptWidthFillUint16 != PciCfg2Write.Width || 
-        S3BootScriptWidthFillUint32 != PciCfg2Write.Width ||
-        S3BootScriptWidthFillUint64 != PciCfg2Write.Width){
-      Reg         = (UINT8) ((UINT8) PciAddress + DataWidth);
-      PciAddress  = (PciAddress & 0xFFFFFFFFFFFFFF00ULL) + Reg;
-    }
-
-    if (S3BootScriptWidthFifoUint8  != PciCfg2Write.Width ||
-        S3BootScriptWidthFifoUint16 != PciCfg2Write.Width || 
-        S3BootScriptWidthFifoUint32 != PciCfg2Write.Width ||
-        S3BootScriptWidthFifoUint64 != PciCfg2Write.Width) {
-      Buffer += DataWidth;
-    }
-  }
-  return Status;
+  DEBUG ((EFI_D_INFO, "BootScriptExecutePciCfg2Write - 0x%04x, 0x%08x, 0x%08x, 0x%08x\n", Segment, PCI_ADDRESS_ENCODE (Address), Count, (UINTN)Width));
+  return ScriptPciCfg2Write (Width, Segment, Address, Count, Buffer);
 }
 
 
 /**
-  Perform pci configuration read & Write operation.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_PCI_CONFIG2_READ_WRITE OP code.
   
   @param     Script                     The pointer of S3 boot script
   @param     AndMask                    Mask value for 'and' operation
@@ -1461,14 +1447,18 @@ BootScriptExecutePciCfg2ReadWrite (
   UINT64      Data;
   EFI_STATUS  Status;
   EFI_BOOT_SCRIPT_PCI_CONFIG2_READ_WRITE PciCfg2ReadWrite;
+
+  Data = 0;
+
   CopyMem ((VOID*)&PciCfg2ReadWrite, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG2_READ_WRITE));
 
-  DEBUG ((EFI_D_INFO, "BootScriptExecutePciCfg2ReadWrite - 0x%08x\n", (UINTN)PciCfg2ReadWrite.Address));
+  DEBUG ((EFI_D_INFO, "BootScriptExecutePciCfg2ReadWrite - 0x%04x, 0x%08x, 0x%016lx, 0x%016lx\n", PciCfg2ReadWrite.Segment, PCI_ADDRESS_ENCODE (PciCfg2ReadWrite.Address), AndMask, OrMask));
   
   Status = ScriptPciCfg2Read (
              (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfg2ReadWrite.Width,
              PciCfg2ReadWrite.Segment,
              PciCfg2ReadWrite.Address,
+             1,
              &Data
              );
   if (EFI_ERROR (Status)) {
@@ -1480,12 +1470,13 @@ BootScriptExecutePciCfg2ReadWrite (
              (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfg2ReadWrite.Width,
              PciCfg2ReadWrite.Segment,
              PciCfg2ReadWrite.Address,
+             1,
              &Data
              );
   return Status;
 }
 /**
-  To perform poll pci configure operation.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_PCI_CONFIG_POLL OP code.
   
   @param     Script                     The pointer of S3 boot script
   @param     AndMask                    Mask value for 'and' operation
@@ -1508,12 +1499,13 @@ BootScriptPciCfgPoll (
   EFI_BOOT_SCRIPT_PCI_CONFIG_POLL PciCfgPoll;
   CopyMem ((VOID*)&PciCfgPoll, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG_POLL));
 
-  DEBUG ((EFI_D_INFO, "BootScriptPciCfgPoll - 0x%08x\n", (UINTN)PciCfgPoll.Address));
+  DEBUG ((EFI_D_INFO, "BootScriptPciCfgPoll - 0x%08x, 0x%016lx, 0x%016lx\n", PCI_ADDRESS_ENCODE (PciCfgPoll.Address), AndMask, OrMask));
   
   Data = 0;
   Status = ScriptPciCfgRead (
              (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfgPoll.Width,
              PciCfgPoll.Address,
+             1,
              &Data
              );
   if ((!EFI_ERROR (Status)) &&(Data & AndMask) == OrMask) {
@@ -1526,6 +1518,7 @@ BootScriptPciCfgPoll (
     Status = ScriptPciCfgRead (
                (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfgPoll.Width,
                PciCfgPoll.Address,
+               1,
                &Data
                );
     if ((!EFI_ERROR (Status)) &&
@@ -1542,7 +1535,7 @@ BootScriptPciCfgPoll (
 }
 
 /**
-  To perform poll pci configure operation.
+  Interprete the boot script node with EFI_BOOT_SCRIPT_PCI_CONFIG2_POLL OP code.
   
   @param     Script                     The pointer of S3 Boot Script
   @param     AndMask                    Mask value for 'and' operation
@@ -1568,12 +1561,13 @@ BootScriptPciCfg2Poll (
   Data = 0;
   CopyMem ((VOID*)&PciCfg2Poll, (VOID*)Script, sizeof(EFI_BOOT_SCRIPT_PCI_CONFIG2_POLL));
 
-  DEBUG ((EFI_D_INFO, "BootScriptPciCfg2Poll - 0x%08x\n", (UINTN)PciCfg2Poll.Address));
+  DEBUG ((EFI_D_INFO, "BootScriptPciCfg2Poll - 0x%04x, 0x%08x, 0x%016lx, 0x%016lx\n", PciCfg2Poll.Segment, PCI_ADDRESS_ENCODE (PciCfg2Poll.Address), AndMask, OrMask));
  
   Status = ScriptPciCfg2Read (
              (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfg2Poll.Width,
              PciCfg2Poll.Segment,
              PciCfg2Poll.Address,
+             1,
              &Data
              );
   if ((!EFI_ERROR (Status)) && (Data & AndMask) == OrMask) {
@@ -1588,6 +1582,7 @@ BootScriptPciCfg2Poll (
                (S3_BOOT_SCRIPT_LIB_WIDTH) PciCfg2Poll.Width,
                PciCfg2Poll.Segment,               
                PciCfg2Poll.Address,
+               1,
                &Data
                );
     if ((!EFI_ERROR (Status)) &&  (Data & AndMask) == OrMask) {
