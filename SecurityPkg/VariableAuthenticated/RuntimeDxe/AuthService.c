@@ -15,7 +15,7 @@
   They will do basic validation for authentication data structure, then call crypto library
   to verify the signature.
 
-Copyright (c) 2009 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2009 - 2013, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -356,30 +356,23 @@ AutenticatedVariableServiceInitialize (
   DEBUG ((EFI_D_INFO, "Variable %s is %x\n", EFI_SECURE_BOOT_ENABLE_NAME, SecureBootEnable));
 
   //
-  // Check "CustomMode" variable's existence.
+  // Initialize "CustomMode" in STANDARD_SECURE_BOOT_MODE state.
   //
   FindVariable (EFI_CUSTOM_MODE_NAME, &gEfiCustomModeEnableGuid, &Variable, &mVariableModuleGlobal->VariableGlobal, FALSE);
-  if (Variable.CurrPtr != NULL) {
-    CustomMode = *(GetVariableDataPtr (Variable.CurrPtr));
-  } else {
-    //
-    // "CustomMode" not exist, initialize it in STANDARD_SECURE_BOOT_MODE.
-    //
-    CustomMode = STANDARD_SECURE_BOOT_MODE;
-    Status = UpdateVariable (
-               EFI_CUSTOM_MODE_NAME,
-               &gEfiCustomModeEnableGuid,
-               &CustomMode,
-               sizeof (UINT8),
-               EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-               0,
-               0,
-               &Variable,
-               NULL
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
+  CustomMode = STANDARD_SECURE_BOOT_MODE;
+  Status = UpdateVariable (
+             EFI_CUSTOM_MODE_NAME,
+             &gEfiCustomModeEnableGuid,
+             &CustomMode,
+             sizeof (UINT8),
+             EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+             0,
+             0,
+             &Variable,
+             NULL
+             );
+  if (EFI_ERROR (Status)) {
+    return Status;
   }
   
   DEBUG ((EFI_D_INFO, "Variable %s is %x\n", EFI_CUSTOM_MODE_NAME, CustomMode));
@@ -437,6 +430,8 @@ AddPubKeyInStore (
   UINT32                  Index;
   VARIABLE_POINTER_TRACK  Variable;
   UINT8                   *Ptr;
+  UINT8                   *Data;
+  UINTN                   DataSize;
 
   if (PubKey == NULL) {
     return 0;
@@ -468,9 +463,45 @@ AddPubKeyInStore (
     //
     if (mPubKeyNumber == MAX_KEY_NUM) {
       //
-      // Notes: Database is full, need enhancement here, currently just return 0.
+      // Public key dadatase is full, try to reclaim invalid key.
       //
-      return 0;
+      if (AtRuntime ()) {
+        //
+        // NV storage can't reclaim at runtime.
+        //
+        return 0;
+      }
+      
+      Status = Reclaim (
+                 mVariableModuleGlobal->VariableGlobal.NonVolatileVariableBase,
+                 &mVariableModuleGlobal->NonVolatileLastVariableOffset,
+                 FALSE,
+                 NULL,
+                 TRUE,
+                 TRUE
+                 );
+      if (EFI_ERROR (Status)) {
+        return 0;
+      }
+
+      Status = FindVariable (
+                 AUTHVAR_KEYDB_NAME,
+                 &gEfiAuthenticatedVariableGuid,
+                 &Variable,
+                 &mVariableModuleGlobal->VariableGlobal,
+                 FALSE
+                 );
+      ASSERT_EFI_ERROR (Status);
+
+      DataSize  = DataSizeOfVariable (Variable.CurrPtr);
+      Data      = GetVariableDataPtr (Variable.CurrPtr);
+      ASSERT ((DataSize != 0) && (Data != NULL));
+      CopyMem (mPubKeyStore, (UINT8 *) Data, DataSize);
+      mPubKeyNumber = (UINT32) (DataSize / EFI_CERT_TYPE_RSA2048_SIZE);
+
+      if (mPubKeyNumber == MAX_KEY_NUM) {
+        return 0;
+      }     
     }
 
     CopyMem (mPubKeyStore + mPubKeyNumber * EFI_CERT_TYPE_RSA2048_SIZE, PubKey, EFI_CERT_TYPE_RSA2048_SIZE);

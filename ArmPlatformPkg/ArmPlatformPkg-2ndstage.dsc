@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+#  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 #  
 #  This program and the accompanying materials                          
 #  are licensed and made available under the terms and conditions of the BSD License         
@@ -80,6 +80,7 @@
   ArmDisassemblerLib|ArmPkg/Library/ArmDisassemblerLib/ArmDisassemblerLib.inf
   DmaLib|ArmPkg/Library/ArmDmaLib/ArmDmaLib.inf
   ArmGicLib|ArmPkg/Drivers/PL390Gic/PL390GicLib.inf
+  ArmPlatformStackLib|ArmPlatformPkg/Library/ArmPlatformStackLib/ArmPlatformStackLib.inf
 
   SerialPortLib|MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf
   TimerLib|MdePkg/Library/BaseTimerLibNullTemplate/BaseTimerLibNullTemplate.inf
@@ -116,6 +117,7 @@
 
   ArmPlatformSecExtraActionLib|ArmPlatformPkg/Library/DebugSecExtraActionLib/DebugSecExtraActionLib.inf  
   DebugAgentLib|ArmPkg/Library/DebugAgentSymbolsBaseLib/DebugAgentSymbolsBaseLib.inf
+  DefaultExceptionHandlerLib|ArmPkg/Library/DefaultExceptionHandlerLib/DefaultExceptionHandlerLibBase.inf
   
   PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
   ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
@@ -341,7 +343,6 @@
   #
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
-  FatPkg/EnhancedFatDxe/Fat.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
   
   #
