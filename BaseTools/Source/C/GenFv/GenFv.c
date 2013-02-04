@@ -623,12 +623,7 @@ Returns:
               );
   } else {
     VerboseMsg ("Create Fv image and its map file");
-    //
-    // Will take rebase action at below situation:
-    // 1. ForceRebase Flag specified to TRUE;
-    // 2. ForceRebase Flag not specified, BaseAddress greater than zero.
-    //
-    if (((mFvDataInfo.BaseAddress > 0) && (mFvDataInfo.ForceRebase == -1)) || (mFvDataInfo.ForceRebase == 1)) {
+    if (mFvDataInfo.BaseAddressSet) {
       VerboseMsg ("FvImage Rebase Address is 0x%llX", (unsigned long long) mFvDataInfo.BaseAddress);
     }
     //

@@ -83,6 +83,7 @@ PeCoffLoaderRelocateImageExtraAction (
   CHAR8 Temp[512];
 #endif
 
+  if (ImageContext->PdbPointer)
 #ifdef __CC_ARM
 #if (__ARMCC_VERSION < 500000)
   // Print out the command for the RVD debugger to load symbols for this image
@@ -95,6 +96,7 @@ PeCoffLoaderRelocateImageExtraAction (
   // This may not work correctly if you generate PE/COFF directlyas then the Offset would not be required
   DEBUG ((EFI_D_ERROR, "add-symbol-file %a 0x%08x\n", DeCygwinPathIfNeeded (ImageContext->PdbPointer, Temp, sizeof (Temp)), (UINTN)(ImageContext->ImageAddress + ImageContext->SizeOfHeaders)));
 #else
+  do {} while (0);
   DEBUG ((EFI_D_ERROR, "Loading driver at 0x%11p EntryPoint=0x%11p\n", (VOID *)(UINTN) ImageContext->ImageAddress, FUNCTION_ENTRY_POINT (ImageContext->EntryPoint)));
 #endif
 }
@@ -121,6 +123,7 @@ PeCoffLoaderUnloadImageExtraAction (
   CHAR8 Temp[512];
 #endif
   
+  if (ImageContext->PdbPointer)
 #ifdef __CC_ARM
   {  
   // Print out the command for the RVD debugger to load symbols for this image
