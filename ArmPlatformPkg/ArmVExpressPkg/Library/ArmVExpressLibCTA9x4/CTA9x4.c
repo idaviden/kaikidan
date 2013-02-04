@@ -211,12 +211,3 @@ ArmPlatformGetPlatformPpiList (
   *PpiListSize = sizeof(gPlatformPpiTable);
   *PpiList = gPlatformPpiTable;
 }
-
-UINTN
-ArmPlatformGetCorePosition (
-  IN UINTN MpId
-  )
-{
-  return 1;
-}
-
