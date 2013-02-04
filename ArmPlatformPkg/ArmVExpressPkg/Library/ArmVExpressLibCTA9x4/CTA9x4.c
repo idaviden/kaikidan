@@ -220,3 +220,11 @@ ArmPlatformGetCorePosition (
   return 1;
 }
 
+UINTN
+ArmPlatformGetCorePosition (
+  IN UINTN MpId
+  )
+{
+  return 1;
+}
+

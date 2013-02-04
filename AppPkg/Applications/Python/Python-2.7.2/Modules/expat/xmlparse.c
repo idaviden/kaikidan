@@ -18,7 +18,11 @@
 #include <string.h>                     /* memset(), memcpy() */
 #include <assert.h>
 
+#if defined(UEFI_C_SOURCE)
+  #include <expat/expat.h>
+#else
 #include "expat.h"
+#endif
 
 #ifdef XML_UNICODE
 #define XML_ENCODE_MAX XML_UTF16_ENCODE_MAX
@@ -1493,6 +1497,10 @@ XML_Parse(XML_Parser parser, const char *s, int len, int isFinal)
           ps_parsing = XML_FINISHED;
           return result;
         }
+        break;
+      default:
+        /* XML_FINISHED case required by compiler - but not tested - djv */
+        return XML_STATUS_OK;
       }
     }
 

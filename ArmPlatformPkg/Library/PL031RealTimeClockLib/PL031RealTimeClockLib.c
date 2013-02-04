@@ -4,6 +4,7 @@
   Currently this driver does not support runtime virtual calling.
 
   Copyright (c) 2008 - 2010, Apple Inc. All rights reserved.<BR>
+  Copyright (c) 2011-2013, ARM Ltd. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -33,9 +34,9 @@
 
 #include <ArmPlatform.h>
 
-CHAR16        mTimeZoneVariableName[] = L"PL031_TimeZone";
-CHAR16        mDaylightVariableName[] = L"PL031_Daylight";
-BOOLEAN       mPL031Initialized = FALSE;
+STATIC CONST CHAR16  mTimeZoneVariableName[] = L"PL031RtcTimeZone";
+STATIC CONST CHAR16  mDaylightVariableName[] = L"PL031RtcDaylight";
+STATIC BOOLEAN       mPL031Initialized = FALSE;
 
 EFI_STATUS
 IdentifyPL031 (
@@ -127,10 +128,6 @@ EpochToEfiTime (
   UINTN         mm;
   UINTN         ss;
   UINTN         J;
-
-  if (Time->Daylight == TRUE) {
-
-  }
 
   J  = (EpochSeconds / 86400) + 2440588;
   j  = J + 32044;
@@ -233,13 +230,14 @@ DayValid (
   Returns the current time and date information, and the time-keeping capabilities
   of the hardware platform.
 
-  @param  Time                  A pointer to storage to receive a snapshot of the current time.
-  @param  Capabilities          An optional pointer to a buffer to receive the real time clock
-                                device's capabilities.
+  @param  Time                   A pointer to storage to receive a snapshot of the current time.
+  @param  Capabilities           An optional pointer to a buffer to receive the real time clock
+                                 device's capabilities.
 
-  @retval EFI_SUCCESS           The operation completed successfully.
-  @retval EFI_INVALID_PARAMETER Time is NULL.
-  @retval EFI_DEVICE_ERROR      The time could not be retrieved due to hardware error.
+  @retval EFI_SUCCESS            The operation completed successfully.
+  @retval EFI_INVALID_PARAMETER  Time is NULL.
+  @retval EFI_DEVICE_ERROR       The time could not be retrieved due to hardware error.
+  @retval EFI_SECURITY_VIOLATION The time could not be retrieved due to an authentication failure.
 
 **/
 EFI_STATUS
@@ -250,9 +248,10 @@ LibGetTime (
   )
 {
   EFI_STATUS  Status = EFI_SUCCESS;
-  UINTN       EpochSeconds;
-  INT16       *TimeZone = 0;
-  UINTN       *Daylight = 0;
+  UINT32      EpochSeconds;
+  INT16       TimeZone;
+  UINT8       Daylight;
+  UINTN       Size;
 
   // Initialize the hardware if not already done
   if (!mPL031Initialized) {
@@ -286,27 +285,44 @@ LibGetTime (
   }
 
   // Get the current time zone information from non-volatile storage
-  TimeZone = (INT16 *)GetVariable(mTimeZoneVariableName, &gEfiGlobalVariableGuid);
+  Size = sizeof (TimeZone);
+  Status = gRT->GetVariable (
+                  (CHAR16 *)mTimeZoneVariableName,
+                  &gEfiCallerIdGuid,
+                  NULL,
+                  &Size,
+                  (VOID *)&TimeZone
+                  );
 
-  if (TimeZone == NULL) {
+  if (EFI_ERROR (Status)) {
+    ASSERT(Status != EFI_INVALID_PARAMETER);
+    ASSERT(Status != EFI_BUFFER_TOO_SMALL);
+
+    if (Status != EFI_NOT_FOUND)
+      goto EXIT;
+
     // The time zone variable does not exist in non-volatile storage, so create it.
     Time->TimeZone = EFI_UNSPECIFIED_TIMEZONE;
     // Store it
     Status = gRT->SetVariable (
-                                mTimeZoneVariableName,
-                                &gEfiGlobalVariableGuid,
-                                EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                                sizeof(Time->TimeZone),
-                                &(Time->TimeZone)
-                             );
+                    (CHAR16 *)mTimeZoneVariableName,
+                    &gEfiCallerIdGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    Size,
+                    (VOID *)&(Time->TimeZone)
+                    );
     if (EFI_ERROR (Status)) {
-      DEBUG((EFI_D_ERROR,"LibGetTime: ERROR: TimeZone\n"));
+      DEBUG ((
+        EFI_D_ERROR,
+        "LibGetTime: Failed to save %s variable to non-volatile storage, Status = %r\n",
+        mTimeZoneVariableName,
+        Status
+        ));
       goto EXIT;
     }
   } else {
     // Got the time zone
-    Time->TimeZone = *TimeZone;
-    FreePool(TimeZone);
+    Time->TimeZone = TimeZone;
 
     // Check TimeZone bounds:   -1440 to 1440 or 2047
     if (((Time->TimeZone < -1440) || (Time->TimeZone > 1440))
@@ -321,27 +337,44 @@ LibGetTime (
   }
 
   // Get the current daylight information from non-volatile storage
-  Daylight = (UINTN *)GetVariable(mDaylightVariableName, &gEfiGlobalVariableGuid);
+  Size = sizeof (Daylight);
+  Status = gRT->GetVariable (
+                  (CHAR16 *)mDaylightVariableName,
+                  &gEfiCallerIdGuid,
+                  NULL,
+                  &Size,
+                  (VOID *)&Daylight
+                  );
 
-  if (Daylight == NULL) {
+  if (EFI_ERROR (Status)) {
+    ASSERT(Status != EFI_INVALID_PARAMETER);
+    ASSERT(Status != EFI_BUFFER_TOO_SMALL);
+
+    if (Status != EFI_NOT_FOUND)
+      goto EXIT;
+
     // The daylight variable does not exist in non-volatile storage, so create it.
     Time->Daylight = 0;
     // Store it
     Status = gRT->SetVariable (
-                                mDaylightVariableName,
-                                &gEfiGlobalVariableGuid,
-                                EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                                sizeof(Time->Daylight),
-                                &(Time->Daylight)
-                             );
+                    (CHAR16 *)mDaylightVariableName,
+                    &gEfiCallerIdGuid,
+                    EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                    Size,
+                    (VOID *)&(Time->Daylight)
+                    );
     if (EFI_ERROR (Status)) {
-      DEBUG((EFI_D_ERROR,"LibGetTime: ERROR: Daylight\n"));
+      DEBUG ((
+        EFI_D_ERROR,
+        "LibGetTime: Failed to save %s variable to non-volatile storage, Status = %r\n",
+        mDaylightVariableName,
+        Status
+        ));
       goto EXIT;
     }
   } else {
     // Got the daylight information
-    Time->Daylight = *Daylight;
-    FreePool(Daylight);
+    Time->Daylight = Daylight;
 
     // Adjust for the correct period
     if ((Time->Daylight & EFI_TIME_IN_DAYLIGHT) == EFI_TIME_IN_DAYLIGHT) {
@@ -456,27 +489,37 @@ LibSetTime (
 
   // Save the current time zone information into non-volatile storage
   Status = gRT->SetVariable (
-                              mTimeZoneVariableName,
-                              &gEfiGlobalVariableGuid,
-                              EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                              sizeof(Time->TimeZone),
-                              &(Time->TimeZone)
-                           );
+                  (CHAR16 *)mTimeZoneVariableName,
+                  &gEfiCallerIdGuid,
+                  EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                  sizeof (Time->TimeZone),
+                  (VOID *)&(Time->TimeZone)
+                  );
   if (EFI_ERROR (Status)) {
-    DEBUG((EFI_D_ERROR,"LibSetTime: ERROR: TimeZone\n"));
+      DEBUG ((
+        EFI_D_ERROR,
+        "LibSetTime: Failed to save %s variable to non-volatile storage, Status = %r\n",
+        mTimeZoneVariableName,
+        Status
+        ));
     goto EXIT;
   }
 
   // Save the current daylight information into non-volatile storage
   Status = gRT->SetVariable (
-                              mDaylightVariableName,
-                              &gEfiGlobalVariableGuid,
-                              EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
-                              sizeof(Time->Daylight),
-                              &(Time->Daylight)
-                           );
+                  (CHAR16 *)mDaylightVariableName,
+                  &gEfiCallerIdGuid,
+                  EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                  sizeof(Time->Daylight),
+                  (VOID *)&(Time->Daylight)
+                  );
   if (EFI_ERROR (Status)) {
-    DEBUG((EFI_D_ERROR,"LibSetTime: ERROR: Daylight\n"));
+    DEBUG ((
+      EFI_D_ERROR,
+      "LibSetTime: Failed to save %s variable to non-volatile storage, Status = %r\n",
+      mDaylightVariableName,
+      Status
+      ));
     goto EXIT;
   }
 
