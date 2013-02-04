@@ -233,7 +233,7 @@ BootDeviceGetType (
   EFI_STATUS Status;
   BOOLEAN IsEfiApp;
   BOOLEAN IsBootLoader;
-  BOOLEAN     HasFDTSupport;
+  CHAR16  FDTType[16];
 
   if (FileName == NULL) {
     Print(L"Is an EFI Application? ");
@@ -258,16 +258,20 @@ BootDeviceGetType (
     }
     *BootType = BDS_LOADER_EFI_APPLICATION;
   } else {
-    Print(L"Has FDT support? ");
-    Status = GetHIInputBoolean (&HasFDTSupport);
+    Print(L"Boot Type: [a] ATAGS, [g] Global FDT or [l] Local FDT? [a/g/l] ");
+    Status = GetHIInputStr (FDTType, 16);
     if (EFI_ERROR(Status)) {
       return EFI_ABORTED;
     }
-    if (HasFDTSupport) {
-      *BootType = BDS_LOADER_KERNEL_LINUX_FDT;
-    } else {
+	if (StrCmp(FDTType, L"g") == 0) {
+      *BootType = BDS_LOADER_KERNEL_LINUX_GLOBAL_FDT;
+	} else if (StrCmp(FDTType, L"l") == 0) {
+      *BootType = BDS_LOADER_KERNEL_LINUX_LOCAL_FDT;
+	} else if (StrCmp(FDTType, L"a") == 0) {
       *BootType = BDS_LOADER_KERNEL_LINUX_ATAG;
-    }
+	} else {
+		return EFI_ABORTED;
+	}
   }
 
   return EFI_SUCCESS;
