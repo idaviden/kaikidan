@@ -268,8 +268,13 @@ DefineDefaultBootEntries (
         CmdLineSize = AsciiStrSize ((CHAR8*)PcdGetPtr(PcdDefaultBootArgument));
         InitrdPath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdDefaultBootInitrdPath));
         InitrdSize = GetDevicePathSize (InitrdPath);
-        FdtLocalPath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdFdtLocalDevicePath));
-        FdtLocalSize = GetDevicePathSize (FdtLocalPath);
+        if (BootType == BDS_LOADER_KERNEL_LINUX_LOCAL_FDT) {
+          FdtLocalPath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdDefaultFdtLocalDevicePath));
+          FdtLocalSize = GetDevicePathSize (FdtLocalPath);
+        } else {
+          FdtLocalPath = NULL;
+          FdtLocalSize = 0;
+        }
 
         BootArguments = (ARM_BDS_LOADER_ARGUMENTS*)AllocatePool (sizeof(ARM_BDS_LOADER_ARGUMENTS) + CmdLineSize + InitrdSize + FdtLocalSize);
         BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
