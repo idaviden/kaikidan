@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
-# Copyright (c) 2010 - 2012, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
 #
 # This program and the accompanying materials
 # are licensed and made available under the terms and conditions of the BSD License
@@ -58,15 +58,20 @@ case `uname` in
     echo Cygwin not fully supported yet.
     ;;
   Darwin*)
-      Major=$(uname -r | cut -f 1 -d '.')
-      if [[ $Major == 9 ]]
-      then
+    Major=$(uname -r | cut -f 1 -d '.')
+    case $Major in
+      10)
+        TARGET_TOOLS=XCODE32
+        ;;
+      1[12])
+        TARGET_TOOLS=XCLANG
+        ;;
+       *)
         echo OvmfPkg requires Snow Leopard or later OS
         exit 1
-      else
-        TARGET_TOOLS=XCODE32
-      fi
-      ;;
+        ;;
+    esac
+    ;;
   Linux*)
     gcc_version=$(gcc -v 2>&1 | tail -1 | awk '{print $3}')
     case $gcc_version in
@@ -134,7 +139,16 @@ done
 case $PROCESSOR in
   IA32)
     Processor=Ia32
-    QEMU_COMMAND=qemu
+    if  [ -x `which qemu-system-i386` ]; then
+      QEMU_COMMAND=qemu-system-i386
+    elif  [ -x `which qemu-system-x86_64` ]; then
+      QEMU_COMMAND=qemu-system-x86_64
+    elif  [ -x `which qemu` ]; then
+      QEMU_COMMAND=qemu
+    else
+      echo Unable to find QEMU for IA32 architecture!
+      exit 1
+    fi
     ;;
   X64)
     Processor=X64

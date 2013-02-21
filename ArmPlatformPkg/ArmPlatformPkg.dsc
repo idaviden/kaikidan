@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+#  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 #  
 #  This program and the accompanying materials                          
 #  are licensed and made available under the terms and conditions of the BSD License         
@@ -121,6 +121,7 @@
   ArmPlatformGlobalVariableLib|ArmPlatformPkg/Library/ArmPlatformGlobalVariableLib/Sec/SecArmPlatformGlobalVariableLib.inf
   
   DebugAgentLib|ArmPkg/Library/DebugAgentSymbolsBaseLib/DebugAgentSymbolsBaseLib.inf
+  DefaultExceptionHandlerLib|ArmPkg/Library/DefaultExceptionHandlerLib/DefaultExceptionHandlerLibBase.inf
 
 [LibraryClasses.common.PEI_CORE]
   HobLib|MdePkg/Library/PeiHobLib/PeiHobLib.inf
@@ -400,7 +401,6 @@
   #
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
-  FatPkg/EnhancedFatDxe/Fat.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
   
   #

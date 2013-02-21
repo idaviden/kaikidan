@@ -1,6 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+*  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 *
 *  This program and the accompanying materials
 *  are licensed and made available under the terms and conditions of the BSD License
@@ -14,8 +14,11 @@
 
 #include "BdsInternal.h"
 
+#include <Guid/ArmGlobalVariableHob.h>
+
 extern EFI_HANDLE mImageHandle;
 extern BDS_LOAD_OPTION_SUPPORT *BdsLoadOptionSupportList;
+
 
 EFI_STATUS
 SelectBootDevice (
@@ -102,7 +105,7 @@ SelectBootDevice (
     }
     Index++;
   }
-  
+
 EXIT:
   BootDeviceListSupportedFree (&SupportedDeviceList, *SupportedBootDevice);
   return Status;
@@ -187,7 +190,7 @@ BootMenuAddBootOption (
     if (BootType == BDS_LOADER_KERNEL_LINUX_LOCAL_FDT) {
       // Create the specific device path node
       Status = SupportedBootDevice->Support->CreateDevicePathNode (L"local FDT", &FdtLocalPathNode, NULL, NULL);
-      if (EFI_ERROR(Status) && Status != EFI_NOT_FOUND) { // EFI_NOT_FOUND is returned on empty input string, but we can boot without an initrd
+      if (EFI_ERROR(Status) || (FdtLocalPathNode == NULL)) {
         Status = EFI_ABORTED;
         goto EXIT;
       }
@@ -207,7 +210,7 @@ BootMenuAddBootOption (
     FdtLocalSize = GetDevicePathSize (FdtLocalPath);
 
     BootArguments = (ARM_BDS_LOADER_ARGUMENTS*)AllocatePool (sizeof(ARM_BDS_LOADER_ARGUMENTS) + CmdLineSize + InitrdSize + FdtLocalSize);
-    
+
     BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
     BootArguments->LinuxArguments.InitrdSize = InitrdSize;
     BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
@@ -235,7 +238,7 @@ BootMenuAddBootOption (
 FREE_DEVICE_PATH:
   FreePool (DevicePath);
 
-  
+
 EXIT:
   if (Status == EFI_ABORTED) {
     Print(L"\n");
@@ -422,6 +425,57 @@ BootMenuUpdateBootOption (
     CmdLineSize = ReadUnaligned16 ((CONST UINT16*)&LinuxArguments->CmdLineSize);
 
     InitrdSize = ReadUnaligned16 ((CONST UINT16*)&LinuxArguments->InitrdSize);
+    FdtLocalSize = ReadUnaligned16 ((CONST UINT16*)&LinuxArguments->FdtLocalSize);
+
+    if (BootType == BDS_LOADER_KERNEL_LINUX_LOCAL_FDT) {
+      if (FdtLocalSize > 0) {
+        Print(L"Keep the local FDT: ");
+      } else {
+        Print(L"Add a local FDT: ");
+      }
+      Status = GetHIInputBoolean (&FdtLocalSupport);
+      if (EFI_ERROR(Status)) {
+        Status = EFI_ABORTED;
+        goto EXIT;
+      }
+      if (FdtLocalSupport && BootType == BDS_LOADER_KERNEL_LINUX_LOCAL_FDT) {
+        if (FdtLocalSize > 0) {
+          // Case we update the FDT local device path
+          Status = DeviceSupport->UpdateDevicePathNode ((EFI_DEVICE_PATH*)((UINTN)(LinuxArguments + 1) + CmdLineSize + InitrdSize), L"local FDT", &FdtLocalPath, NULL, NULL);
+          if (EFI_ERROR(Status) && Status != EFI_NOT_FOUND) {// EFI_NOT_FOUND is returned on empty input string
+            Status = EFI_ABORTED;
+            goto EXIT;
+          }
+          FdtLocalSize = GetDevicePathSize (FdtLocalPath);
+        } else {
+          // Case we create the FdtLocal device path
+
+          Status = DeviceSupport->CreateDevicePathNode (L"local FDT", &FdtLocalPathNode, NULL, NULL);
+          if (EFI_ERROR(Status) || (FdtLocalPathNode == NULL)) {
+            Status = EFI_ABORTED;
+            goto EXIT;
+          }
+
+          if (FdtLocalPathNode != NULL) {
+            // Duplicate Linux kernel Device Path
+            TempFdtLocalPath = DuplicateDevicePath (BootOption->FilePathList);
+            // Replace Linux kernel Node by EndNode
+            SetDevicePathEndNode (GetLastDevicePathNode (TempFdtLocalPath));
+            // Append the Device Path node to the select device path
+            FdtLocalPath = AppendDevicePathNode (TempFdtLocalPath, (CONST EFI_DEVICE_PATH_PROTOCOL *)FdtLocalPathNode);
+            FreePool (TempFdtLocalPath);
+            FdtLocalSize = GetDevicePathSize (FdtLocalPath);
+          } else {
+            FdtLocalPath = NULL;
+          }
+        }
+      } else {
+        FdtLocalSize = 0;
+      }
+    } else {
+      FdtLocalSupport = FALSE;
+    }
+
     if (InitrdSize > 0) {
       Print(L"Keep the initrd: ");
     } else {
@@ -468,7 +522,7 @@ BootMenuUpdateBootOption (
       InitrdSize = 0;
     }
 
-    Print(L"Arguments to pass to the binary: "); 
+    Print(L"Arguments to pass to the binary: ");
     if (CmdLineSize > 0) {
       AsciiStrnCpy(CmdLine, (CONST CHAR8*)(LinuxArguments + 1), CmdLineSize);
     } else {
@@ -592,10 +646,22 @@ UpdateFdtPath (
     // Append the Device Path node to the select device path
     FdtDevicePath = AppendDevicePathNode (SupportedBootDevice->DevicePathProtocol, FdtDevicePathNode);
     FdtDevicePathSize = GetDevicePathSize (FdtDevicePath);
-    Status = gRT->SetVariable ((CHAR16*)L"Fdt", &gEfiGlobalVariableGuid, (EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS ), FdtDevicePathSize, FdtDevicePath);
+    Status = gRT->SetVariable (
+                    (CHAR16*)L"Fdt",
+                    &gArmGlobalVariableGuid,
+                    EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+                    FdtDevicePathSize,
+                    FdtDevicePath
+                    );
     ASSERT_EFI_ERROR(Status);
   } else {
-    gRT->SetVariable ((CHAR16*)L"Fdt", &gEfiGlobalVariableGuid, (EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS ), 0, NULL);
+    gRT->SetVariable (
+           (CHAR16*)L"Fdt",
+           &gArmGlobalVariableGuid,
+           EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+           0,
+           NULL
+           );
     ASSERT_EFI_ERROR(Status);
   }
 
