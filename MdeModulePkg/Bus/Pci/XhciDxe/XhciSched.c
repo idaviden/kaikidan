@@ -1238,7 +1238,7 @@ XhcMonitorAsyncRequests (
   UINT8                   *ProcBuf;
   URB                     *Urb;
   UINT8                   SlotId;
-  EFI_STATUS              Status;
+  //  EFI_STATUS              Status;
   EFI_TPL                 OldTpl;
 
   OldTpl = gBS->RaiseTPL (XHC_TPL);
@@ -1260,7 +1260,8 @@ XhcMonitorAsyncRequests (
     // Check the result of URB execution. If it is still
     // active, check the next one.
     //
-    Status = XhcCheckUrbResult (Xhc, Urb);
+    XhcCheckUrbResult (Xhc, Urb);
+    //    Status = XhcCheckUrbResult (Xhc, Urb);
 
     if (!Urb->Finished) {
       continue;
@@ -1626,11 +1627,11 @@ XhcCheckNewEvent (
   )
 {
   EFI_STATUS          Status;
-  TRB_TEMPLATE        *EvtTrb;
+  //  TRB_TEMPLATE        *EvtTrb;
 
   ASSERT (EvtRing != NULL);
 
-  EvtTrb     = EvtRing->EventRingDequeue;
+  //  EvtTrb     = EvtRing->EventRingDequeue;
   *NewEvtTrb = EvtRing->EventRingDequeue;
 
   if (EvtRing->EventRingDequeue == EvtRing->EventRingEnqueue) {
