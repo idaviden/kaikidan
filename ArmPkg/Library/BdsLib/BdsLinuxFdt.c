@@ -1,19 +1,22 @@
 /** @file
 *
-*  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
-*  
-*  This program and the accompanying materials                          
-*  are licensed and made available under the terms and conditions of the BSD License         
-*  which accompanies this distribution.  The full text of the license may be found at        
-*  http://opensource.org/licenses/bsd-license.php                                            
+*  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 *
-*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
-*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
+#include <Library/ArmSmcLib.h>
 #include <Library/PcdLib.h>
 #include <libfdt.h>
+
+#include <IndustryStandard/ArmSmc.h>
 
 #include "BdsInternal.h"
 #include "BdsLinuxLoader.h"
@@ -104,6 +107,23 @@ DebugDumpFdt (
   UINTN shift;
   UINT32 version;
 
+  {
+    // Can 'memreserve' be printed by below code?
+    INTN num = fdt_num_mem_rsv(FdtBlob);
+    INTN i, err;
+    UINT64 addr = 0,size = 0;
+
+    for (i = 0; i < num; i++) {
+      err = fdt_get_mem_rsv(FdtBlob, i, &addr, &size);
+      if (err) {
+        DEBUG((EFI_D_ERROR, "Error (%d) : Cannot get memreserve section (%d)\n", err, i));
+      }
+      else {
+        Print(L"/memreserve/ \t0x%lx \t0x%lx;\n",addr,size);
+      }
+    }
+  }
+
   depth = 0;
   shift = 4;
 
@@ -159,6 +179,25 @@ DebugDumpFdt (
   }
 }
 
+STATIC
+BOOLEAN
+IsLinuxReservedRegion (
+  IN EFI_MEMORY_TYPE MemoryType
+  )
+{
+  switch(MemoryType) {
+  case EfiRuntimeServicesCode:
+  case EfiRuntimeServicesData:
+  case EfiUnusableMemory:
+  case EfiACPIReclaimMemory:
+  case EfiACPIMemoryNVS:
+    return TRUE;
+  default:
+    return FALSE;
+  }
+}
+
+
 typedef struct {
   UINTN   Base;
   UINTN   Size;
@@ -170,7 +209,7 @@ PrepareFdt (
   IN     EFI_PHYSICAL_ADDRESS InitrdImage,
   IN     UINTN                InitrdImageSize,
   IN OUT EFI_PHYSICAL_ADDRESS *FdtBlobBase,
-  IN OUT UINT32               *FdtBlobSize
+  IN OUT UINTN                *FdtBlobSize
   )
 {
   EFI_STATUS            Status;
@@ -182,6 +221,7 @@ PrepareFdt (
   INTN                  cpu_node;
   INTN                  lenp;
   CONST VOID*           BootArg;
+  CONST VOID*           Method;
   EFI_PHYSICAL_ADDRESS  InitrdImageStart;
   EFI_PHYSICAL_ADDRESS  InitrdImageEnd;
   FdtRegion             Region;
@@ -195,17 +235,65 @@ PrepareFdt (
   UINT32                ClusterId;
   UINT32                CoreId;
   UINT64                CpuReleaseAddr;
+  UINTN                 MemoryMapSize;
+  EFI_MEMORY_DESCRIPTOR *MemoryMap;
+  UINTN                 MapKey;
+  UINTN                 DescriptorSize;
+  UINT32                DescriptorVersion;
+  UINTN                 Pages;
+  BOOLEAN               PsciSmcSupported;
+  UINTN                 Rx;
+  UINTN                 OriginalFdtSize;
 
+  //
+  // Ensure the Power State Coordination Interface (PSCI) SMCs are there if supported
+  //
+  PsciSmcSupported = FALSE;
+  if (FeaturePcdGet (PcdArmPsciSupport) == TRUE) {
+    // Check the SMC response to the Presence SMC
+    Rx   = ARM_SMC_ID_PRESENCE;
+    ArmCallSmc (&Rx);
+    if (Rx == 1) {
+      // Check the SMC UID
+      Rx   = ARM_SMC_ID_UID;
+      ArmCallSmc (&Rx);
+      if (Rx == ARM_TRUSTZONE_UID_4LETTERID) {
+        Rx   = ARM_SMC_ID_UID + 1;
+        ArmCallSmc (&Rx);
+        //TODO: Replace ARM magic number
+        if (Rx == 0x40524d48) {
+          PsciSmcSupported = TRUE;
+        }
+      }
+      if (PsciSmcSupported == FALSE) {
+        DEBUG((EFI_D_ERROR,"Warning: The Power State Coordination Interface (PSCI) is not supported"
+                           "by your platform Trusted Firmware.\n"));
+      }
+    }
+  }
+
+  //
+  // Sanity checks on the original FDT blob.
+  //
   err = fdt_check_header ((VOID*)(UINTN)(*FdtBlobBase));
   if (err != 0) {
     Print (L"ERROR: Device Tree header not valid (err:%d)\n", err);
     return EFI_INVALID_PARAMETER;
   }
 
+  // The original FDT blob might have been loaded partially.
+  // Check that it is not the case.
+  OriginalFdtSize = (UINTN)fdt_totalsize ((VOID*)(UINTN)(*FdtBlobBase));
+  if (OriginalFdtSize > *FdtBlobSize) {
+    Print (L"ERROR: Incomplete FDT. Only %d/%d bytes have been loaded.\n",
+           *FdtBlobSize, OriginalFdtSize);
+    return EFI_INVALID_PARAMETER;
+  }
+
   //
   // Allocate memory for the new FDT
   //
-  NewFdtBlobSize = fdt_totalsize((VOID*)(UINTN)(*FdtBlobBase)) + FDT_ADDITIONAL_ENTRIES_SIZE;
+  NewFdtBlobSize = OriginalFdtSize + FDT_ADDITIONAL_ENTRIES_SIZE;
 
   // Try below a watermark address
   Status = EFI_NOT_FOUND;
@@ -222,7 +310,7 @@ PrepareFdt (
     Status = gBS->AllocatePages (AllocateAnyPages, EfiBootServicesData, EFI_SIZE_TO_PAGES(NewFdtBlobSize), &NewFdtBlobBase);
     if (EFI_ERROR(Status)) {
       ASSERT_EFI_ERROR(Status);
-      goto FAIL_NEW_FDT;
+      goto FAIL_ALLOCATE_NEW_FDT;
     } else {
       DEBUG ((EFI_D_WARN, "WARNING: Loaded FDT at random address 0x%lX.\nWARNING: There is a risk of accidental overwriting by other code/data.\n", NewFdtBlobBase));
     }
@@ -259,7 +347,9 @@ PrepareFdt (
     }
   DEBUG_CODE_END();
 
+  //
   // Set Linux CmdLine
+  //
   if ((CommandLineArguments != NULL) && (AsciiStrLen (CommandLineArguments) > 0)) {
     err = fdt_setprop(fdt, node, "bootargs", CommandLineArguments, AsciiStrSize(CommandLineArguments));
     if (err) {
@@ -267,7 +357,9 @@ PrepareFdt (
     }
   }
 
+  //
   // Set Linux Initrd
+  //
   if (InitrdImageSize != 0) {
     InitrdImageStart = cpu_to_fdt64 (InitrdImage);
     err = fdt_setprop(fdt, node, "linux,initrd-start", &InitrdImageStart, sizeof(EFI_PHYSICAL_ADDRESS));
@@ -281,7 +373,9 @@ PrepareFdt (
     }
   }
 
+  //
   // Set Physical memory setup if does not exist
+  //
   node = fdt_subnode_offset(fdt, 0, "memory");
   if (node < 0) {
     // The 'memory' node does not exist, create it
@@ -289,10 +383,10 @@ PrepareFdt (
     if (node >= 0) {
       fdt_setprop_string(fdt, node, "name", "memory");
       fdt_setprop_string(fdt, node, "device_type", "memory");
-      
+
       GetSystemMemoryResources (&ResourceList);
       Resource = (BDS_SYSTEM_MEMORY_RESOURCE*)ResourceList.ForwardLink;
-      
+
       if (sizeof(UINTN) == sizeof(UINT32)) {
         Region.Base = cpu_to_fdt32((UINTN)Resource->PhysicalStart);
         Region.Size = cpu_to_fdt32((UINTN)Resource->ResourceLength);
@@ -308,7 +402,39 @@ PrepareFdt (
     }
   }
 
+  //
+  // Add the memory regions reserved by the UEFI Firmware
+  //
+
+  // Retrieve the UEFI Memory Map
+  MemoryMap = NULL;
+  MemoryMapSize = 0;
+  Status = gBS->GetMemoryMap (&MemoryMapSize, MemoryMap, &MapKey, &DescriptorSize, &DescriptorVersion);
+  if (Status == EFI_BUFFER_TOO_SMALL) {
+    Pages = EFI_SIZE_TO_PAGES (MemoryMapSize) + 1;
+    MemoryMap = AllocatePages (Pages);
+    Status = gBS->GetMemoryMap (&MemoryMapSize, MemoryMap, &MapKey, &DescriptorSize, &DescriptorVersion);
+  }
+
+  // Go through the list and add the reserved region to the Device Tree
+  if (!EFI_ERROR(Status)) {
+    for (Index = 0; Index < (MemoryMapSize / sizeof(EFI_MEMORY_DESCRIPTOR)); Index++) {
+      if (IsLinuxReservedRegion ((EFI_MEMORY_TYPE)MemoryMap[Index].Type)) {
+        DEBUG((DEBUG_VERBOSE, "Reserved region of type %d [0x%X, 0x%X]\n",
+            MemoryMap[Index].Type,
+            (UINTN)MemoryMap[Index].PhysicalStart,
+            (UINTN)(MemoryMap[Index].PhysicalStart + MemoryMap[Index].NumberOfPages * EFI_PAGE_SIZE)));
+        err = fdt_add_mem_rsv(fdt, MemoryMap[Index].PhysicalStart, MemoryMap[Index].NumberOfPages * EFI_PAGE_SIZE);
+        if (err != 0) {
+          Print(L"Warning: Fail to add 'memreserve' (err:%d)\n", err);
+        }
+      }
+    }
+  }
+
+  //
   // Setup Arm Mpcore Info if it is a multi-core or multi-cluster platforms
+  //
   for (Index=0; Index < gST->NumberOfTableEntries; Index++) {
     // Check for correct GUID type
     if (CompareGuid (&gArmMpCoreInfoGuid, &(gST->ConfigurationTable[Index].VendorGuid))) {
@@ -338,16 +464,50 @@ PrepareFdt (
           fdt_setprop(fdt, cpu_node, "reg", &Index, sizeof(Index));
         }
 
-        fdt_setprop_string(fdt, cpu_node, "enable-method", "spin-table");
-        CpuReleaseAddr = cpu_to_fdt64(ArmCoreInfoTable[Index].MailboxSetAddress);
-        fdt_setprop(fdt, cpu_node, "cpu-release-addr", &CpuReleaseAddr, sizeof(CpuReleaseAddr));
+        // If Power State Coordination Interface (PSCI) is not supported then it is expected the secondary
+        // cores are spinning waiting for the Operating System to release them
+        if (PsciSmcSupported == FALSE) {
+          // We as the bootloader are responsible for either creating or updating
+          // these entries. Do not trust the entries in the DT. We only know about
+          // 'spin-table' type. Do not try to update other types if defined.
+          Method = fdt_getprop(fdt, cpu_node, "enable-method", &lenp);
+          if ( (Method == NULL) || (!AsciiStrCmp((CHAR8 *)Method, "spin-table")) ) {
+            fdt_setprop_string(fdt, cpu_node, "enable-method", "spin-table");
+            CpuReleaseAddr = cpu_to_fdt64(ArmCoreInfoTable[Index].MailboxSetAddress);
+            fdt_setprop(fdt, cpu_node, "cpu-release-addr", &CpuReleaseAddr, sizeof(CpuReleaseAddr));
 
-        // If it is not the primary core than the cpu should be disabled
-        if (((ArmCoreInfoTable[Index].ClusterId != ClusterId) || (ArmCoreInfoTable[Index].CoreId != CoreId))) {
-          fdt_setprop_string(fdt, cpu_node, "status", "disabled");
+            // If it is not the primary core than the cpu should be disabled
+            if (((ArmCoreInfoTable[Index].ClusterId != ClusterId) || (ArmCoreInfoTable[Index].CoreId != CoreId))) {
+              fdt_setprop_string(fdt, cpu_node, "status", "disabled");
+            }
+          } else {
+            Print(L"Warning: Unsupported enable-method type for CPU[%d] : %a\n", Index, (CHAR8 *)Method);
+          }
         }
       }
       break;
+    }
+  }
+
+  // If the Power State Coordination Interface is supported then we signal it in the Device Tree
+  if (PsciSmcSupported == TRUE) {
+    // Before to create it we check if the node is not already defined in the Device Tree
+    node = fdt_subnode_offset(fdt, 0, "psci");
+    if (node < 0) {
+      // The 'psci' node does not exist, create it
+      node = fdt_add_subnode(fdt, 0, "psci");
+      if (node < 0) {
+        DEBUG((EFI_D_ERROR,"Error on creating 'psci' node\n"));
+        Status = EFI_INVALID_PARAMETER;
+        goto FAIL_NEW_FDT;
+      } else {
+        fdt_setprop_string(fdt, node, "compatible", "arm,psci");
+        fdt_setprop_string(fdt, node, "method", "smc");
+        fdt_setprop_cell(fdt, node, "cpu_suspend", ARM_SMC_ARM_CPU_SUSPEND);
+        fdt_setprop_cell(fdt, node, "cpu_off", ARM_SMC_ARM_CPU_OFF);
+        fdt_setprop_cell(fdt, node, "cpu_on", ARM_SMC_ARM_CPU_ON);
+        fdt_setprop_cell(fdt, node, "cpu_migrate", ARM_SMC_ARM_MIGRATE);
+      }
     }
   }
 
@@ -355,11 +515,17 @@ PrepareFdt (
     //DebugDumpFdt (fdt);
   DEBUG_CODE_END();
 
+  // If we succeeded to generate the new Device Tree then free the old Device Tree
+  gBS->FreePages (*FdtBlobBase, EFI_SIZE_TO_PAGES (*FdtBlobSize));
+
   *FdtBlobBase = NewFdtBlobBase;
   *FdtBlobSize = (UINTN)fdt_totalsize ((VOID*)(UINTN)(NewFdtBlobBase));
   return EFI_SUCCESS;
 
 FAIL_NEW_FDT:
+  gBS->FreePages (NewFdtBlobBase, EFI_SIZE_TO_PAGES (NewFdtBlobSize));
+
+FAIL_ALLOCATE_NEW_FDT:
   *FdtBlobSize = (UINTN)fdt_totalsize ((VOID*)(UINTN)(*FdtBlobBase));
   // Return success even if we failed to update the FDT blob. The original one is still valid.
   return EFI_SUCCESS;
