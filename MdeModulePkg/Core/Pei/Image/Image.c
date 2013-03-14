@@ -1,7 +1,7 @@
 /** @file
   Pei Core Load Image Support
 
-Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -409,7 +409,7 @@ LoadAndRelocatePeCoffImage (
     }
 
     //
-    // If necessary, adjust the Image Address to make sure it is section alignment.
+    // Adjust the Image Address to make sure it is section alignment.
     //
     if (ImageContext.SectionAlignment > EFI_PAGE_SIZE) {
       ImageContext.ImageAddress =
