@@ -1,7 +1,7 @@
 /** @file
   Provides interface to shell functionality for shell commands and applications.
 
-  Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -4058,4 +4058,109 @@ ShellFileHandleReadLine(
   }
 
   return (Status);
+}
+
+/**
+  Function to print help file / man page content in the spec from the UEFI Shell protocol GetHelpText function.
+
+  @param[in] CommandToGetHelpOn  Pointer to a string containing the command name of help file to be printed.
+  @param[in] SectionToGetHelpOn  Pointer to the section specifier(s).
+  @param[in] PrintCommandText    If TRUE, prints the command followed by the help content, otherwise prints 
+                                 the help content only.
+  @retval EFI_DEVICE_ERROR       The help data format was incorrect.
+  @retval EFI_NOT_FOUND          The help data could not be found.
+  @retval EFI_SUCCESS            The operation was successful.
+**/
+EFI_STATUS
+EFIAPI
+ShellPrintHelp (
+  IN CONST CHAR16     *CommandToGetHelpOn,
+  IN CONST CHAR16     *SectionToGetHelpOn,
+  IN BOOLEAN          PrintCommandText
+  )
+{
+	EFI_STATUS          Status;
+	CHAR16              *OutText;
+	  
+	OutText = NULL;
+	
+  //
+  // Get the string to print based
+  //
+	Status = gEfiShellProtocol->GetHelpText (CommandToGetHelpOn, SectionToGetHelpOn, &OutText);
+  
+  //
+  // make sure we got a valid string
+  //
+  if (EFI_ERROR(Status)){
+    return Status;
+	} 
+  if (OutText == NULL || StrLen(OutText) == 0) {
+    return EFI_NOT_FOUND;  
+	}
+  
+  //
+  // Chop off trailing stuff we dont need
+  //
+  while (OutText[StrLen(OutText)-1] == L'\r' || OutText[StrLen(OutText)-1] == L'\n' || OutText[StrLen(OutText)-1] == L' ') {
+    OutText[StrLen(OutText)-1] = CHAR_NULL;
+  }
+  
+  //
+  // Print this out to the console
+  //
+  if (PrintCommandText) {
+    ShellPrintEx(-1, -1, L"%H%-14s%N- %s\r\n", CommandToGetHelpOn, OutText);
+  } else {
+    ShellPrintEx(-1, -1, L"%N%s\r\n", OutText);
+  }
+  
+  SHELL_FREE_NON_NULL(OutText);
+
+	return EFI_SUCCESS;
+}
+
+/**
+  Function to delete a file by name
+  
+  @param[in]       FileName       Pointer to file name to delete.
+  
+  @retval EFI_SUCCESS             the file was deleted sucessfully
+  @retval EFI_WARN_DELETE_FAILURE the handle was closed, but the file was not
+                                  deleted
+  @retval EFI_INVALID_PARAMETER   One of the parameters has an invalid value.
+  @retval EFI_NOT_FOUND           The specified file could not be found on the
+                                  device or the file system could not be found
+                                  on the device.
+  @retval EFI_NO_MEDIA            The device has no medium.
+  @retval EFI_MEDIA_CHANGED       The device has a different medium in it or the
+                                  medium is no longer supported.
+  @retval EFI_DEVICE_ERROR        The device reported an error.
+  @retval EFI_VOLUME_CORRUPTED    The file system structures are corrupted.
+  @retval EFI_WRITE_PROTECTED     The file or medium is write protected.
+  @retval EFI_ACCESS_DENIED       The file was opened read only.
+  @retval EFI_OUT_OF_RESOURCES    Not enough resources were available to open the
+                                  file.
+  @retval other                   The file failed to open
+**/
+EFI_STATUS
+EFIAPI
+ShellDeleteFileByName(
+  IN CONST CHAR16               *FileName
+  )
+{
+  EFI_STATUS                Status;
+  SHELL_FILE_HANDLE         FileHandle;
+  
+  Status = ShellFileExists(FileName);
+  
+  if (Status == EFI_SUCCESS){
+    Status = ShellOpenFileByName(FileName, &FileHandle, EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 0x0);
+    if (Status == EFI_SUCCESS){
+      Status = ShellDeleteFile(&FileHandle);
+    }
+  } 
+
+  return(Status);
+  
 }

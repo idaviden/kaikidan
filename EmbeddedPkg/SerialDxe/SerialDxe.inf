@@ -39,6 +39,7 @@
   DebugLib
   UefiDriverEntryPoint
   SerialPortLib
+  SerialPortExtLib
 
 [Protocols]
   gEfiSerialIoProtocolGuid    

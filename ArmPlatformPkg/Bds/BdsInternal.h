@@ -1,6 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+*  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 *
 *  This program and the accompanying materials
 *  are licensed and made available under the terms and conditions of the BSD License
@@ -54,7 +54,7 @@ typedef enum {
 typedef struct {
   UINT16                     CmdLineSize;
   UINT16                     InitrdSize;
-  
+
   // These following fields have variable length and are packed:
   //CHAR8                      *CmdLine;
   //EFI_DEVICE_PATH_PROTOCOL   *InitrdPathList;
@@ -100,20 +100,12 @@ typedef struct _BDS_LOAD_OPTION_SUPPORT {
   BDS_SUPPORTED_DEVICE_TYPE   Type;
   EFI_STATUS    (*ListDevices)(IN OUT LIST_ENTRY* BdsLoadOptionList);
   BOOLEAN       (*IsSupported)(IN  EFI_DEVICE_PATH *DevicePath);
-  EFI_STATUS    (*CreateDevicePathNode)(IN CHAR16* FileName, OUT EFI_DEVICE_PATH_PROTOCOL **DevicePathNode, OUT ARM_BDS_LOADER_TYPE *BootType, OUT UINT32 *Attributes);
+  EFI_STATUS    (*CreateDevicePathNode)(IN CHAR16* FileName, OUT EFI_DEVICE_PATH_PROTOCOL **DevicePathNodes, OUT ARM_BDS_LOADER_TYPE *BootType, OUT UINT32 *Attributes);
   EFI_STATUS    (*UpdateDevicePathNode)(IN EFI_DEVICE_PATH *OldDevicePath, IN CHAR16* FileName, OUT EFI_DEVICE_PATH_PROTOCOL** NewDevicePath, OUT ARM_BDS_LOADER_TYPE *BootType, OUT UINT32 *Attributes);
 } BDS_LOAD_OPTION_SUPPORT;
 
 #define LOAD_OPTION_ENTRY_FROM_LINK(a)  BASE_CR(a, BDS_LOAD_OPTION_ENTRY, Link)
 #define LOAD_OPTION_FROM_LINK(a)        ((BDS_LOAD_OPTION_ENTRY*)BASE_CR(a, BDS_LOAD_OPTION_ENTRY, Link))->BdsLoadOption
-
-EFI_STATUS
-GetEnvironmentVariable (
-  IN     CONST CHAR16*   VariableName,
-  IN     VOID*           DefaultValue,
-  IN OUT UINTN*          Size,
-  OUT    VOID**          Value
-  );
 
 EFI_STATUS
 BootDeviceListSupportedInit (
