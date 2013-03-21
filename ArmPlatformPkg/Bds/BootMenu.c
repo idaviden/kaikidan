@@ -732,7 +732,7 @@ BootMenuMain (
 
         // Get the FDT device path
         FdtDevicePathSize = GetDevicePathSize (DefaultFdtDevicePath);
-        Status = GetEnvironmentVariable ((CHAR16 *)L"Fdt", NULL, DefaultFdtDevicePath, &FdtDevicePathSize, (VOID **)&FdtDevicePath);
+        Status = GetEnvironmentVariable ((CHAR16 *)L"Fdt", &gArmGlobalVariableGuid, DefaultFdtDevicePath, &FdtDevicePathSize, (VOID **)&FdtDevicePath);
 
         // Convert FdtDevicePath to text
         if (EFI_ERROR(Status)) {
