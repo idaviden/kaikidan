@@ -72,10 +72,10 @@ ASM_PFX(JumpToKernel):
 # VOID
 # EFIAPI
 # JumpToUefiKernel (
-#   EFI_HANDLE ImageHandle,
-#   EFI_SYSTEM_TABLE *SystemTable,
-#   VOID *KernelBootParams,
-#   VOID *KernelStart
+#   EFI_HANDLE ImageHandle,        // rcx
+#   EFI_SYSTEM_TABLE *SystemTable, // rdx
+#   VOID *KernelBootParams,        // r8
+#   VOID *KernelStart              // r9
 #   );
 #------------------------------------------------------------------------------
 ASM_PFX(JumpToUefiKernel):

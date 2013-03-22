@@ -1,6 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+*  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 *  
 *  This program and the accompanying materials                          
 *  are licensed and made available under the terms and conditions of the BSD License         
@@ -17,6 +17,7 @@
 #include <Protocol/UsbIo.h>
 #include <Protocol/DiskIo.h>
 #include <Protocol/LoadedImage.h>
+#include <Protocol/SimpleNetwork.h>
 
 #define IS_DEVICE_PATH_NODE(node,type,subtype) (((node)->Type == (type)) && ((node)->SubType == (subtype)))
 
@@ -77,14 +78,14 @@ BdsGetDeviceUsb (
   // Get all the UsbIo handles
   UsbIoHandleCount = 0;
   Status = gBS->LocateHandleBuffer (ByProtocol, &gEfiUsbIoProtocolGuid, NULL, &UsbIoHandleCount, &UsbIoBuffer);
-  if (EFI_ERROR(Status) || (UsbIoHandleCount == 0)) {
+  if (EFI_ERROR (Status) || (UsbIoHandleCount == 0)) {
     return Status;
   }
 
   // Check if one of the handles matches the USB description
   for (Index = 0; Index < UsbIoHandleCount; Index++) {
     Status = gBS->HandleProtocol (UsbIoBuffer[Index], &gEfiDevicePathProtocolGuid, (VOID **) &UsbIoDevicePath);
-    if (!EFI_ERROR(Status)) {
+    if (!EFI_ERROR (Status)) {
       TmpDevicePath = UsbIoDevicePath;
       while (!IsDevicePathEnd (TmpDevicePath)) {
         // Check if the Device Path node is a USB Removable device Path node
@@ -94,11 +95,11 @@ BdsGetDeviceUsb (
             WwidDevicePath2 = (USB_WWID_DEVICE_PATH*)TmpDevicePath;
             if ((WwidDevicePath1->VendorId == WwidDevicePath2->VendorId) &&
                 (WwidDevicePath1->ProductId == WwidDevicePath2->ProductId) &&
-                (CompareMem (WwidDevicePath1+1, WwidDevicePath2+1, DevicePathNodeLength(WwidDevicePath1)-sizeof(USB_WWID_DEVICE_PATH)) == 0))
+                (CompareMem (WwidDevicePath1+1, WwidDevicePath2+1, DevicePathNodeLength(WwidDevicePath1)-sizeof (USB_WWID_DEVICE_PATH)) == 0))
             {
               *DeviceHandle = UsbIoBuffer[Index];
               // Add the additional original Device Path Nodes (eg: FilePath Device Path Node) to the new Device Path
-              *NewDevicePath = AppendDevicePath (UsbIoDevicePath, NextDevicePathNode(RemovableDevicePath));
+              *NewDevicePath = AppendDevicePath (UsbIoDevicePath, NextDevicePathNode (RemovableDevicePath));
               return EFI_SUCCESS;
             }
           } else {
@@ -112,7 +113,7 @@ BdsGetDeviceUsb (
             {
               *DeviceHandle = UsbIoBuffer[Index];
               // Add the additional original Device Path Nodes (eg: FilePath Device Path Node) to the new Device Path
-              *NewDevicePath = AppendDevicePath (UsbIoDevicePath, NextDevicePathNode(RemovableDevicePath));
+              *NewDevicePath = AppendDevicePath (UsbIoDevicePath, NextDevicePathNode (RemovableDevicePath));
               return EFI_SUCCESS;
             }
           }
@@ -131,7 +132,7 @@ BdsIsRemovableHd (
   IN  EFI_DEVICE_PATH*  DevicePath
   )
 {
-  return IS_DEVICE_PATH_NODE(DevicePath, MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP);
+  return IS_DEVICE_PATH_NODE (DevicePath, MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP);
 }
 
 EFI_STATUS
@@ -153,14 +154,14 @@ BdsGetDeviceHd (
   // Get all the DiskIo handles
   PartitionHandleCount = 0;
   Status = gBS->LocateHandleBuffer (ByProtocol, &gEfiDiskIoProtocolGuid, NULL, &PartitionHandleCount, &PartitionBuffer);
-  if (EFI_ERROR(Status) || (PartitionHandleCount == 0)) {
+  if (EFI_ERROR (Status) || (PartitionHandleCount == 0)) {
     return Status;
   }
 
   // Check if one of the handles matches the Hard Disk Description
   for (Index = 0; Index < PartitionHandleCount; Index++) {
     Status = gBS->HandleProtocol (PartitionBuffer[Index], &gEfiDevicePathProtocolGuid, (VOID **) &PartitionDevicePath);
-    if (!EFI_ERROR(Status)) {
+    if (!EFI_ERROR (Status)) {
       TmpDevicePath = PartitionDevicePath;
       while (!IsDevicePathEnd (TmpDevicePath)) {
         // Check if the Device Path node is a HD Removable device Path node
@@ -168,12 +169,12 @@ BdsGetDeviceHd (
           HardDriveDevicePath1 = (HARDDRIVE_DEVICE_PATH*)RemovableDevicePath;
           HardDriveDevicePath2 = (HARDDRIVE_DEVICE_PATH*)TmpDevicePath;
           if ((HardDriveDevicePath1->SignatureType == HardDriveDevicePath2->SignatureType) &&
-              (CompareGuid ((EFI_GUID *)HardDriveDevicePath1->Signature,(EFI_GUID *)HardDriveDevicePath2->Signature) == TRUE) &&
+              (CompareGuid ((EFI_GUID *)HardDriveDevicePath1->Signature, (EFI_GUID *)HardDriveDevicePath2->Signature) == TRUE) &&
               (HardDriveDevicePath1->PartitionNumber == HardDriveDevicePath2->PartitionNumber))
           {
             *DeviceHandle = PartitionBuffer[Index];
             // Add the additional original Device Path Nodes (eg: FilePath Device Path Node) to the new Device Path
-            *NewDevicePath = AppendDevicePath (PartitionDevicePath, NextDevicePathNode(RemovableDevicePath));
+            *NewDevicePath = AppendDevicePath (PartitionDevicePath, NextDevicePathNode (RemovableDevicePath));
             return EFI_SUCCESS;
           }
         }
@@ -191,7 +192,7 @@ BdsIsRemovableCdrom (
   IN  EFI_DEVICE_PATH*  DevicePath
   )
 {
-  return IS_DEVICE_PATH_NODE(DevicePath, MEDIA_DEVICE_PATH, MEDIA_CDROM_DP);
+  return IS_DEVICE_PATH_NODE (DevicePath, MEDIA_DEVICE_PATH, MEDIA_CDROM_DP);
 }
 
 EFI_STATUS
@@ -239,8 +240,8 @@ IsRemovableDevice (
 
   TmpDevicePath = DevicePath;
   while (!IsDevicePathEnd (TmpDevicePath)) {
-    for (Index = 0; Index < sizeof(RemovableDeviceSupport) / sizeof(BDS_REMOVABLE_DEVICE_SUPPORT); Index++) {
-      if (RemovableDeviceSupport[Index].IsRemovable(TmpDevicePath)) {
+    for (Index = 0; Index < sizeof (RemovableDeviceSupport) / sizeof (BDS_REMOVABLE_DEVICE_SUPPORT); Index++) {
+      if (RemovableDeviceSupport[Index].IsRemovable (TmpDevicePath)) {
         return TRUE;
       }
     }
@@ -271,9 +272,9 @@ TryRemovableDevice (
   TmpDevicePath       = DevicePath;
 
   while (!IsDevicePathEnd (TmpDevicePath) && !RemovableFound) {
-    for (Index = 0; Index < sizeof(RemovableDeviceSupport) / sizeof(BDS_REMOVABLE_DEVICE_SUPPORT); Index++) {
+    for (Index = 0; Index < sizeof (RemovableDeviceSupport) / sizeof (BDS_REMOVABLE_DEVICE_SUPPORT); Index++) {
       RemovableDevice = &RemovableDeviceSupport[Index];
-      if (RemovableDevice->IsRemovable(TmpDevicePath)) {
+      if (RemovableDevice->IsRemovable (TmpDevicePath)) {
         RemovableDevicePath = TmpDevicePath;
         RemovableFound = TRUE;
         break;
@@ -338,7 +339,7 @@ BdsConnectDevicePath (
     }
 
     /*// We need to check if RemainingDevicePath does not point on the last node. Otherwise, calling
-    // NextDevicePathNode() will return an undetermined Device Path Node
+    // NextDevicePathNode () will return an undetermined Device Path Node
     if (!IsDevicePathEnd (RemainingDevicePath)) {
       RemainingDevicePath = NextDevicePathNode (RemainingDevicePath);
     }*/
@@ -348,7 +349,7 @@ BdsConnectDevicePath (
     // Now, we have got the whole Device Path connected, call again ConnectController to ensure all the supported Driver
     // Binding Protocol are connected (such as DiskIo and SimpleFileSystem)
     Remaining = DevicePath;
-    Status = gBS->LocateDevicePath (&gEfiDevicePathProtocolGuid,&Remaining,Handle);
+    Status = gBS->LocateDevicePath (&gEfiDevicePathProtocolGuid, &Remaining, Handle);
     if (!EFI_ERROR (Status)) {
       Status = gBS->ConnectController (*Handle, NULL, Remaining, FALSE);
       if (EFI_ERROR (Status)) {
@@ -393,9 +394,9 @@ BdsFileSystemSupport (
   EFI_STATUS  Status;
   EFI_SIMPLE_FILE_SYSTEM_PROTOCOL     *FsProtocol;
 
-  Status = gBS->HandleProtocol (Handle,&gEfiSimpleFileSystemProtocolGuid, (VOID **)&FsProtocol);
+  Status = gBS->HandleProtocol (Handle, &gEfiSimpleFileSystemProtocolGuid, (VOID **)&FsProtocol);
 
-  return (!EFI_ERROR(Status) && IS_DEVICE_PATH_NODE(RemainingDevicePath,MEDIA_DEVICE_PATH,MEDIA_FILEPATH_DP));
+  return (!EFI_ERROR (Status) && IS_DEVICE_PATH_NODE (RemainingDevicePath, MEDIA_DEVICE_PATH, MEDIA_FILEPATH_DP));
 }
 
 EFI_STATUS
@@ -416,32 +417,32 @@ BdsFileSystemLoadImage (
   EFI_FILE_PROTOCOL   *File;
   UINTN               Size;
 
-  ASSERT (IS_DEVICE_PATH_NODE(RemainingDevicePath,MEDIA_DEVICE_PATH,MEDIA_FILEPATH_DP));
+  ASSERT (IS_DEVICE_PATH_NODE (RemainingDevicePath, MEDIA_DEVICE_PATH, MEDIA_FILEPATH_DP));
 
   FilePathDevicePath = (FILEPATH_DEVICE_PATH*)RemainingDevicePath;
 
-  Status = gBS->HandleProtocol(Handle,&gEfiSimpleFileSystemProtocolGuid, (VOID **)&FsProtocol);
-  if (EFI_ERROR(Status)) {
+  Status = gBS->HandleProtocol (Handle, &gEfiSimpleFileSystemProtocolGuid, (VOID **)&FsProtocol);
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
   // Try to Open the volume and get root directory
   Status = FsProtocol->OpenVolume (FsProtocol, &Fs);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
   File = NULL;
-  Status = Fs->Open(Fs, &File, FilePathDevicePath->PathName, EFI_FILE_MODE_READ, 0);
-  if (EFI_ERROR(Status)) {
+  Status = Fs->Open (Fs, &File, FilePathDevicePath->PathName, EFI_FILE_MODE_READ, 0);
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
   Size = 0;
-  File->GetInfo(File, &gEfiFileInfoGuid, &Size, NULL);
+  File->GetInfo (File, &gEfiFileInfoGuid, &Size, NULL);
   FileInfo = AllocatePool (Size);
-  Status = File->GetInfo(File, &gEfiFileInfoGuid, &Size, FileInfo);
-  if (EFI_ERROR(Status)) {
+  Status = File->GetInfo (File, &gEfiFileInfoGuid, &Size, FileInfo);
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
@@ -450,14 +451,14 @@ BdsFileSystemLoadImage (
   if (ImageSize) {
     *ImageSize = Size;
   }
-  FreePool(FileInfo);
+  FreePool (FileInfo);
 
   Status = gBS->AllocatePages (Type, EfiBootServicesCode, EFI_SIZE_TO_PAGES(Size), Image);
   // Try to allocate in any pages if failed to allocate memory at the defined location
   if ((Status == EFI_OUT_OF_RESOURCES) && (Type != AllocateAnyPages)) {
     Status = gBS->AllocatePages (AllocateAnyPages, EfiBootServicesCode, EFI_SIZE_TO_PAGES(Size), Image);
   }
-  if (!EFI_ERROR(Status)) {
+  if (!EFI_ERROR (Status)) {
     Status = File->Read (File, &Size, (VOID*)(UINTN)(*Image));
   }
 
@@ -471,8 +472,8 @@ BdsMemoryMapSupport (
   IN EFI_DEVICE_PATH *RemainingDevicePath
   )
 {
-  return IS_DEVICE_PATH_NODE(DevicePath,HARDWARE_DEVICE_PATH,HW_MEMMAP_DP) ||
-         IS_DEVICE_PATH_NODE(RemainingDevicePath,HARDWARE_DEVICE_PATH,HW_MEMMAP_DP);
+  return IS_DEVICE_PATH_NODE (DevicePath, HARDWARE_DEVICE_PATH, HW_MEMMAP_DP) ||
+         IS_DEVICE_PATH_NODE (RemainingDevicePath, HARDWARE_DEVICE_PATH, HW_MEMMAP_DP);
 }
 
 EFI_STATUS
@@ -489,10 +490,10 @@ BdsMemoryMapLoadImage (
   MEMMAP_DEVICE_PATH*   MemMapPathDevicePath;
   UINTN                 Size;
 
-  if (IS_DEVICE_PATH_NODE(RemainingDevicePath,HARDWARE_DEVICE_PATH,HW_MEMMAP_DP)) {
+  if (IS_DEVICE_PATH_NODE (RemainingDevicePath, HARDWARE_DEVICE_PATH, HW_MEMMAP_DP)) {
     MemMapPathDevicePath = (MEMMAP_DEVICE_PATH*)RemainingDevicePath;
   } else {
-    ASSERT (IS_DEVICE_PATH_NODE(DevicePath,HARDWARE_DEVICE_PATH,HW_MEMMAP_DP));
+    ASSERT (IS_DEVICE_PATH_NODE (DevicePath, HARDWARE_DEVICE_PATH, HW_MEMMAP_DP));
     MemMapPathDevicePath = (MEMMAP_DEVICE_PATH*)DevicePath;
   }
 
@@ -506,7 +507,7 @@ BdsMemoryMapLoadImage (
   if ((Status == EFI_OUT_OF_RESOURCES) && (Type != AllocateAnyPages)) {
     Status = gBS->AllocatePages (AllocateAnyPages, EfiBootServicesCode, EFI_SIZE_TO_PAGES(Size), Image);
   }
-  if (!EFI_ERROR(Status)) {
+  if (!EFI_ERROR (Status)) {
     CopyMem ((VOID*)(UINTN)(*Image), (CONST VOID*)(UINTN)MemMapPathDevicePath->StartingAddress, Size);
 
     if (ImageSize != NULL) {
@@ -524,7 +525,7 @@ BdsFirmwareVolumeSupport (
   IN EFI_DEVICE_PATH *RemainingDevicePath
   )
 {
-  return IS_DEVICE_PATH_NODE(RemainingDevicePath, MEDIA_DEVICE_PATH, MEDIA_PIWG_FW_FILE_DP);
+  return IS_DEVICE_PATH_NODE (RemainingDevicePath, MEDIA_DEVICE_PATH, MEDIA_PIWG_FW_FILE_DP);
 }
 
 EFI_STATUS
@@ -546,10 +547,10 @@ BdsFirmwareVolumeLoadImage (
   UINT32                            AuthenticationStatus;
   VOID* ImageBuffer;
 
-  ASSERT (IS_DEVICE_PATH_NODE(RemainingDevicePath, MEDIA_DEVICE_PATH, MEDIA_PIWG_FW_FILE_DP));
+  ASSERT (IS_DEVICE_PATH_NODE (RemainingDevicePath, MEDIA_DEVICE_PATH, MEDIA_PIWG_FW_FILE_DP));
 
-  Status = gBS->HandleProtocol(Handle,&gEfiFirmwareVolume2ProtocolGuid, (VOID **)&FwVol);
-  if (EFI_ERROR(Status)) {
+  Status = gBS->HandleProtocol (Handle, &gEfiFirmwareVolume2ProtocolGuid, (VOID **)&FwVol);
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
@@ -576,7 +577,7 @@ BdsFirmwareVolumeLoadImage (
     // In case the buffer has some address requirements, we must copy the buffer to a buffer following the requirements
     if (Type != AllocateAnyPages) {
       Status = gBS->AllocatePages (Type, EfiBootServicesCode, EFI_SIZE_TO_PAGES(*ImageSize),Image);
-      if (!EFI_ERROR(Status)) {
+      if (!EFI_ERROR (Status)) {
         CopyMem ((VOID*)(UINTN)(*Image), ImageBuffer, *ImageSize);
         FreePool (ImageBuffer);
       }
@@ -588,7 +589,7 @@ BdsFirmwareVolumeLoadImage (
     if ((Status == EFI_OUT_OF_RESOURCES) && (Type != AllocateAnyPages)) {
       Status = gBS->AllocatePages (AllocateAnyPages, EfiBootServicesCode, EFI_SIZE_TO_PAGES(*ImageSize), Image);
     }
-    if (!EFI_ERROR(Status)) {
+    if (!EFI_ERROR (Status)) {
       CopyMem ((VOID*)(UINTN)(*Image), ImageBuffer, *ImageSize);
       FreePool (ImageBuffer);
     }
@@ -604,13 +605,13 @@ BdsFirmwareVolumeLoadImage (
                         &Attrib,
                         &AuthenticationStatus
                         );
-    if (!EFI_ERROR(Status)) {
+    if (!EFI_ERROR (Status)) {
       Status = gBS->AllocatePages (Type, EfiBootServicesCode, EFI_SIZE_TO_PAGES(*ImageSize), Image);
       // Try to allocate in any pages if failed to allocate memory at the defined location
       if ((Status == EFI_OUT_OF_RESOURCES) && (Type != AllocateAnyPages)) {
         Status = gBS->AllocatePages (AllocateAnyPages, EfiBootServicesCode, EFI_SIZE_TO_PAGES(*ImageSize), Image);
       }
-      if (!EFI_ERROR(Status)) {
+      if (!EFI_ERROR (Status)) {
         Status = FwVol->ReadFile (
                                 FwVol,
                                 FvNameGuid,
@@ -636,7 +637,7 @@ BdsPxeSupport (
   EFI_STATUS                  Status;
   EFI_PXE_BASE_CODE_PROTOCOL* PxeBcProtocol;
 
-  if (!IsDevicePathEnd(RemainingDevicePath)) {
+  if (!IsDevicePathEnd (RemainingDevicePath)) {
     return FALSE;
   }
 
@@ -661,6 +662,7 @@ BdsPxeLoadImage (
   EFI_STATUS              Status;
   EFI_LOAD_FILE_PROTOCOL  *LoadFileProtocol;
   UINTN                   BufferSize;
+  EFI_PXE_BASE_CODE_PROTOCOL *Pxe;
 
   // Get Load File Protocol attached to the PXE protocol
   Status = gBS->HandleProtocol (Handle, &gEfiLoadFileProtocolGuid, (VOID **)&LoadFileProtocol);
@@ -671,16 +673,25 @@ BdsPxeLoadImage (
   Status = LoadFileProtocol->LoadFile (LoadFileProtocol, DevicePath, TRUE, &BufferSize, NULL);
   if (Status == EFI_BUFFER_TOO_SMALL) {
     Status = gBS->AllocatePages (Type, EfiBootServicesCode, EFI_SIZE_TO_PAGES(BufferSize), Image);
-    if (EFI_ERROR(Status)) {
+    if (EFI_ERROR (Status)) {
       return Status;
     }
 
     Status = LoadFileProtocol->LoadFile (LoadFileProtocol, DevicePath, TRUE, &BufferSize, (VOID*)(UINTN)(*Image));
-    if (!EFI_ERROR(Status) && (ImageSize != NULL)) {
+    if (!EFI_ERROR (Status) && (ImageSize != NULL)) {
       *ImageSize = BufferSize;
     }
   }
 
+  if (Status == EFI_ALREADY_STARTED) {
+    Status = gBS->LocateProtocol (&gEfiPxeBaseCodeProtocolGuid, NULL, (VOID **)&Pxe);
+    if (!EFI_ERROR(Status)) {
+      // If PXE is already started, we stop it
+      Pxe->Stop (Pxe);
+      // And we try again
+      return BdsPxeLoadImage (DevicePath, Handle, RemainingDevicePath, Type, Image, ImageSize);
+    }
+  }
   return Status;
 }
 
@@ -696,18 +707,18 @@ BdsTftpSupport (
   EFI_PXE_BASE_CODE_PROTOCOL  *PxeBcProtocol;
 
   // Validate the Remaining Device Path
-  if (IsDevicePathEnd(RemainingDevicePath)) {
+  if (IsDevicePathEnd (RemainingDevicePath)) {
     return FALSE;
   }
-  if (!IS_DEVICE_PATH_NODE(RemainingDevicePath,MESSAGING_DEVICE_PATH,MSG_IPv4_DP) &&
-      !IS_DEVICE_PATH_NODE(RemainingDevicePath,MESSAGING_DEVICE_PATH,MSG_IPv6_DP)) {
+  if (!IS_DEVICE_PATH_NODE (RemainingDevicePath, MESSAGING_DEVICE_PATH, MSG_IPv4_DP) &&
+      !IS_DEVICE_PATH_NODE (RemainingDevicePath, MESSAGING_DEVICE_PATH, MSG_IPv6_DP)) {
     return FALSE;
   }
   NextDevicePath = NextDevicePathNode (RemainingDevicePath);
-  if (IsDevicePathEnd(NextDevicePath)) {
+  if (IsDevicePathEnd (NextDevicePath)) {
     return FALSE;
   }
-  if (!IS_DEVICE_PATH_NODE(NextDevicePath,MEDIA_DEVICE_PATH,MEDIA_FILEPATH_DP)) {
+  if (!IS_DEVICE_PATH_NODE (NextDevicePath, MEDIA_DEVICE_PATH, MEDIA_FILEPATH_DP)) {
     return FALSE;
   }
 
@@ -737,33 +748,62 @@ BdsTftpLoadImage (
   IPv4_DEVICE_PATH*           IPv4DevicePathNode;
   FILEPATH_DEVICE_PATH*       FilePathDevicePath;
   EFI_IP_ADDRESS              LocalIp;
+  CHAR8*                      AsciiPathName;
+  EFI_SIMPLE_NETWORK_PROTOCOL *Snp;
 
-  ASSERT(IS_DEVICE_PATH_NODE(RemainingDevicePath,MESSAGING_DEVICE_PATH,MSG_IPv4_DP));
+  ASSERT(IS_DEVICE_PATH_NODE (RemainingDevicePath, MESSAGING_DEVICE_PATH, MSG_IPv4_DP));
 
   IPv4DevicePathNode = (IPv4_DEVICE_PATH*)RemainingDevicePath;
   FilePathDevicePath = (FILEPATH_DEVICE_PATH*)(IPv4DevicePathNode + 1);
 
   Status = gBS->LocateProtocol (&gEfiPxeBaseCodeProtocolGuid, NULL, (VOID **)&Pxe);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
   Status = Pxe->Start (Pxe, FALSE);
-  if (EFI_ERROR(Status) && (Status != EFI_ALREADY_STARTED)) {
+  if (EFI_ERROR (Status) && (Status != EFI_ALREADY_STARTED)) {
     return Status;
   }
 
-  if (!IPv4DevicePathNode->StaticIpAddress) {
-    Status = Pxe->Dhcp(Pxe, TRUE);
-  } else {
-    CopyMem (&LocalIp.v4, &IPv4DevicePathNode->LocalIpAddress, sizeof (EFI_IPv4_ADDRESS));
-    Status = Pxe->SetStationIp (Pxe, &LocalIp, NULL);
-  }
+  do {
+    if (!IPv4DevicePathNode->StaticIpAddress) {
+      Status = Pxe->Dhcp (Pxe, TRUE);
+    } else {
+      CopyMem (&LocalIp.v4, &IPv4DevicePathNode->LocalIpAddress, sizeof (EFI_IPv4_ADDRESS));
+      Status = Pxe->SetStationIp (Pxe, &LocalIp, NULL);
+    }
+
+    // If an IP Address has already been set and a different static IP address is requested then restart
+    // the Network service.
+    if (Status == EFI_ALREADY_STARTED) {
+      Status = gBS->LocateProtocol (&gEfiSimpleNetworkProtocolGuid, NULL, (VOID **)&Snp);
+      if (!EFI_ERROR (Status) && IPv4DevicePathNode->StaticIpAddress &&
+          (CompareMem (&Snp->Mode->CurrentAddress, &IPv4DevicePathNode->LocalIpAddress, sizeof(EFI_MAC_ADDRESS)) != 0))
+      {
+        Pxe->Stop (Pxe);
+        Status = Pxe->Start (Pxe, FALSE);
+        if (EFI_ERROR(Status)) {
+          break;
+        }
+        // After restarting the PXE protocol, we want to try again with our new IP Address
+        Status = EFI_ALREADY_STARTED;
+      }
+    }
+  } while (Status == EFI_ALREADY_STARTED);
+
   if (EFI_ERROR(Status)) {
     return Status;
   }
 
   CopyMem (&ServerIp.v4, &IPv4DevicePathNode->RemoteIpAddress, sizeof (EFI_IPv4_ADDRESS));
+
+  // Convert the Unicode PathName to Ascii
+  AsciiPathName = AllocatePool ((StrLen (FilePathDevicePath->PathName) + 1) * sizeof (CHAR8));
+  if (AsciiPathName == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+  UnicodeStrToAsciiStr (FilePathDevicePath->PathName, AsciiPathName);
 
   Status = Pxe->Mtftp (
                   Pxe,
@@ -773,18 +813,22 @@ BdsTftpLoadImage (
                   &TftpBufferSize,
                   NULL,
                   &ServerIp,
-                  (UINT8 *)FilePathDevicePath->PathName,
+                  (UINT8*)AsciiPathName,
                   NULL,
-                  TRUE
+                  FALSE
                   );
   if (EFI_ERROR(Status)) {
-    return Status;
+    if (Status == EFI_TFTP_ERROR) {
+      DEBUG((EFI_D_ERROR, "TFTP Error: Fail to get the size of the file\n"));
+    }
+    goto EXIT;
   }
 
   // Allocate a buffer to hold the whole file.
-  TftpBuffer = AllocatePool(TftpBufferSize);
+  TftpBuffer = AllocatePool (TftpBufferSize);
   if (TftpBuffer == NULL) {
-    return EFI_OUT_OF_RESOURCES;
+    Status = EFI_OUT_OF_RESOURCES;
+    goto EXIT;
   }
 
   Status = Pxe->Mtftp (
@@ -795,16 +839,19 @@ BdsTftpLoadImage (
                   &TftpBufferSize,
                   NULL,
                   &ServerIp,
-                  (UINT8 *)FilePathDevicePath->PathName,
+                  (UINT8*)AsciiPathName,
                   NULL,
                   FALSE
                   );
-  if (EFI_ERROR(Status)) {
-    FreePool(TftpBuffer);
+  if (EFI_ERROR (Status)) {
+    FreePool (TftpBuffer);
   } else if (ImageSize != NULL) {
+    *Image = (UINTN)TftpBuffer;
     *ImageSize = (UINTN)TftpBufferSize;
   }
 
+EXIT:
+  FreePool (AsciiPathName);
   return Status;
 }
 
@@ -874,20 +921,20 @@ BdsStartEfiApplication (
 
   // Find the nearest supported file loader
   Status = BdsLoadImage (DevicePath, AllocateAnyPages, &BinaryBuffer, &BinarySize);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
   // Load the image from the Buffer with Boot Services function
   Status = gBS->LoadImage (TRUE, ParentImageHandle, DevicePath, (VOID*)(UINTN)BinaryBuffer, BinarySize, &ImageHandle);
-  if (EFI_ERROR(Status)) {
+  if (EFI_ERROR (Status)) {
     return Status;
   }
 
   // Passed LoadOptions to the EFI Application
   if (LoadOptionsSize != 0) {
     Status = gBS->HandleProtocol (ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **) &LoadedImage);
-    if (EFI_ERROR(Status)) {
+    if (EFI_ERROR (Status)) {
       return Status;
     }
 

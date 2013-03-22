@@ -25,18 +25,21 @@
   BdsAppLoader.c
   BdsHelper.c
   BdsLoadOption.c
-
-  BdsLinuxLoader.c
-  BdsLinuxAtag.c
   BdsLinuxFdt.c
+
+[Sources.ARM]
+  Arm/BdsLinuxLoader.c
+  Arm/BdsLinuxAtag.c
 
 [Packages]
   MdePkg/MdePkg.dec
   EmbeddedPkg/EmbeddedPkg.dec
   ArmPkg/ArmPkg.dec
+  ArmPlatformPkg/ArmPlatformPkg.dec
 
 [LibraryClasses]
   ArmLib
+  ArmSmcLib
   BaseLib
   DebugLib
   DevicePathLib
@@ -49,6 +52,7 @@
 [Guids]
   gEfiFileInfoGuid
   gArmMpCoreInfoGuid
+  gArmGlobalVariableGuid
 
 [Protocols]
   gEfiBdsArchProtocolGuid                       
@@ -61,8 +65,10 @@
   gEfiDiskIoProtocolGuid
   gEfiUsbIoProtocolGuid
   gEfiLoadedImageProtocolGuid
+  gEfiSimpleNetworkProtocolGuid
     
-[FeaturePcd]  
+[FeaturePcd]
+  gArmTokenSpaceGuid.PcdArmPsciSupport
 
 [FixedPcd]
   gArmTokenSpaceGuid.PcdSystemMemoryBase
