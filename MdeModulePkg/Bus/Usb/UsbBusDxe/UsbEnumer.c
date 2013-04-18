@@ -2,7 +2,7 @@
 
     Usb bus enumeration support.
 
-Copyright (c) 2007 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2007 - 2013, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -814,14 +814,20 @@ UsbEnumerateNewDev (
   return EFI_SUCCESS;
 
 ON_ERROR:
-  if (Address != Bus->MaxDevices) {
-    Bus->Devices[Address] = NULL;
-  }
-
-  if (Child != NULL) {
-    UsbFreeDevice (Child);
-  }
-
+  //
+  // If reach here, it means the enumeration process on a given port is interrupted due to error.
+  // The s/w resources, including the assigned address(Address) and the allocated usb device data
+  // structure(Bus->Devices[Address]), will NOT be freed here. These resources will be freed when
+  // the device is unplugged from the port or DriverBindingStop() is invoked.
+  //
+  // This way is used to co-work with the lower layer EDKII UHCI/EHCI/XHCI host controller driver.
+  // It's mainly because to keep UEFI spec unchanged EDKII XHCI driver have to maintain a state machine
+  // to keep track of the mapping between actual address and request address. If the request address
+  // (Address) is freed here, the Address value will be used by next enumerated device. Then EDKII XHCI
+  // host controller driver will have wrong information, which will cause further transaction error.
+  //
+  // EDKII UHCI/EHCI doesn't get impacted as it's make sense to reserve s/w resource till it gets unplugged.
+  //
   return Status;
 }
 
