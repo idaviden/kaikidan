@@ -211,3 +211,4 @@ ArmPlatformGetPlatformPpiList (
   *PpiListSize = sizeof(gPlatformPpiTable);
   *PpiList = gPlatformPpiTable;
 }
+

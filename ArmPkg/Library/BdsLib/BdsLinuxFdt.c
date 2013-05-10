@@ -214,7 +214,9 @@ PrepareFdt (
 {
   EFI_STATUS            Status;
   EFI_PHYSICAL_ADDRESS  NewFdtBlobBase;
+  EFI_PHYSICAL_ADDRESS  NewFdtBlobAllocation;
   UINTN                 NewFdtBlobSize;
+  UINT32                FdtAlignment;
   VOID*                 fdt;
   INTN                  err;
   INTN                  node;
@@ -244,6 +246,7 @@ PrepareFdt (
   BOOLEAN               PsciSmcSupported;
   UINTN                 Rx;
   UINTN                 OriginalFdtSize;
+  BOOLEAN               CpusNodeExist;
 
   //
   // Ensure the Power State Coordination Interface (PSCI) SMCs are there if supported
@@ -260,8 +263,7 @@ PrepareFdt (
       if (Rx == ARM_TRUSTZONE_UID_4LETTERID) {
         Rx   = ARM_SMC_ID_UID + 1;
         ArmCallSmc (&Rx);
-        //TODO: Replace ARM magic number
-        if (Rx == 0x40524d48) {
+        if (Rx == ARM_TRUSTZONE_ARM_UID) {
           PsciSmcSupported = TRUE;
         }
       }
@@ -295,9 +297,15 @@ PrepareFdt (
   //
   NewFdtBlobSize = OriginalFdtSize + FDT_ADDITIONAL_ENTRIES_SIZE;
 
+  // If FDT load address needs to be aligned, allocate more space.
+  FdtAlignment = PcdGet32 (PcdArmLinuxFdtAlignment);
+  if (FdtAlignment != 0) {
+    NewFdtBlobSize += FdtAlignment;
+  }
+
   // Try below a watermark address
   Status = EFI_NOT_FOUND;
-  if (PcdGet32(PcdArmLinuxFdtMaxOffset) != 0) {
+  if (PcdGet32 (PcdArmLinuxFdtMaxOffset) != 0) {
     NewFdtBlobBase = LINUX_FDT_MAX_OFFSET;
     Status = gBS->AllocatePages (AllocateMaxAddress, EfiBootServicesData, EFI_SIZE_TO_PAGES(NewFdtBlobSize), &NewFdtBlobBase);
     if (EFI_ERROR(Status)) {
@@ -314,6 +322,11 @@ PrepareFdt (
     } else {
       DEBUG ((EFI_D_WARN, "WARNING: Loaded FDT at random address 0x%lX.\nWARNING: There is a risk of accidental overwriting by other code/data.\n", NewFdtBlobBase));
     }
+  }
+
+  NewFdtBlobAllocation = NewFdtBlobBase;
+  if (FdtAlignment != 0) {
+    NewFdtBlobBase = ALIGN (NewFdtBlobBase, FdtAlignment);
   }
 
   // Load the Original FDT tree into the new region
@@ -449,6 +462,9 @@ PrepareFdt (
         fdt_setprop_string(fdt, node, "name", "cpus");
         fdt_setprop_cell(fdt, node, "#address-cells", 1);
         fdt_setprop_cell(fdt, node, "#size-cells", 0);
+        CpusNodeExist = FALSE;
+      } else {
+        CpusNodeExist = TRUE;
       }
 
       // Get pointer to ARM processor table
@@ -457,16 +473,20 @@ PrepareFdt (
 
       for (Index = 0; Index < ArmProcessorTable->NumberOfEntries; Index++) {
         AsciiSPrint (Name, 10, "cpu@%d", Index);
-        cpu_node = fdt_subnode_offset(fdt, node, Name);
-        if (cpu_node < 0) {
+
+        // If the 'cpus' node did not exist then creates the 'cpu' nodes. In case 'cpus' node
+        // is provided in the original FDT then we do not add any 'cpu' node.
+        if (!CpusNodeExist) {
           cpu_node = fdt_add_subnode(fdt, node, Name);
           fdt_setprop_string(fdt, cpu_node, "device-type", "cpu");
           fdt_setprop(fdt, cpu_node, "reg", &Index, sizeof(Index));
+        } else {
+          cpu_node = fdt_subnode_offset(fdt, node, Name);
         }
 
         // If Power State Coordination Interface (PSCI) is not supported then it is expected the secondary
         // cores are spinning waiting for the Operating System to release them
-        if (PsciSmcSupported == FALSE) {
+        if ((PsciSmcSupported == FALSE) && (cpu_node >= 0)) {
           // We as the bootloader are responsible for either creating or updating
           // these entries. Do not trust the entries in the DT. We only know about
           // 'spin-table' type. Do not try to update other types if defined.
@@ -523,7 +543,7 @@ PrepareFdt (
   return EFI_SUCCESS;
 
 FAIL_NEW_FDT:
-  gBS->FreePages (NewFdtBlobBase, EFI_SIZE_TO_PAGES (NewFdtBlobSize));
+  gBS->FreePages (NewFdtBlobAllocation, EFI_SIZE_TO_PAGES (NewFdtBlobSize));
 
 FAIL_ALLOCATE_NEW_FDT:
   *FdtBlobSize = (UINTN)fdt_totalsize ((VOID*)(UINTN)(*FdtBlobBase));
