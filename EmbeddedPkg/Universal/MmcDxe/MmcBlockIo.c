@@ -1,14 +1,14 @@
 /** @file
 *
 *  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
-*  
-*  This program and the accompanying materials                          
-*  are licensed and made available under the terms and conditions of the BSD License         
-*  which accompanies this distribution.  The full text of the license may be found at        
-*  http://opensource.org/licenses/bsd-license.php                                            
 *
-*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
-*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
@@ -16,14 +16,49 @@
 #include <Library/DebugLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/TimerLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 
 #include "Mmc.h"
 
-// Untested ...
-//#define USE_STREAM
-
 #define MAX_RETRY_COUNT  1000
 #define CMD_RETRY_COUNT  20
+
+#define TPL_FIRMWARE_INTERRUPTS   ((EFI_TPL)((int) TPL_NOTIFY + 1))
+#define TPL_FOR_MMC_BLOCK_IO      TPL_FIRMWARE_INTERRUPTS
+
+EFI_TPL
+CurrentTpl() {
+  const EFI_TPL Current = gBS->RaiseTPL(TPL_HIGH_LEVEL) ;
+  gBS->RestoreTPL(Current) ;
+  return Current ;
+}
+
+EFI_TPL
+RaiseTplIfLow() {
+  EFI_TPL Current = CurrentTpl() ;
+  /*
+    UEFI Spec states:
+    TPL_CALLBACK Interrupts code executing below TPL_CALLBACK level. Long
+      term operations (such as file system operations and disk I/O) can occur
+      at this level.
+    TPL_NOTIFY Interrupts code executing below TPL_NOTIFY level. Blocking is
+      not allowed at this level. Code executes to completion and returns. If
+      code requires more processing, it needs to signal an event to wait to
+      obtain control again at whatever level it requires. This level is
+      typically used to process low level IO to or from a device.
+    (Firmware Interrupts) This level is internal to the firmware . It is the
+      level at which internal interrupts occur. Code running at this level
+      interrupts code running at the TPL_NOTIFY level (or lower levels). If
+      the interrupt requires extended time to complete, firmware signals
+      another event (or events) to perform the longer term operations so that
+      other interrupts can occur.
+   */
+  if (Current < TPL_FOR_MMC_BLOCK_IO) {
+    Current = gBS->RaiseTPL(TPL_FOR_MMC_BLOCK_IO) ;
+  }
+  return Current ;
+}
+
 
 EFI_STATUS
 MmcNotifyState (
@@ -236,10 +271,7 @@ MmcIdentificationMode (
   // Are we using SDIO ?
   Status = MmcHost->SendCommand (MmcHost, MMC_CMD5, 0);
 
-#if 1 // Added for Panda Board
-  /* It seems few SD cards need some time to recover from this command? */
-  MicroSecondDelay(1000);
-#endif
+  MicroSecondDelay(1000);    /* It seems some SD cards need time to recover from this command? */
   
   if (Status == EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "MmcIdentificationMode(MMC_CMD5): Error - SDIO not supported.\n"));
@@ -269,44 +301,44 @@ MmcIdentificationMode (
     // SD Card or MMC Card ? CMD55 indicates to the card that the next command is an application specific command
     Status = MmcHost->SendCommand (MmcHost, MMC_CMD55, 0);
     if (Status == EFI_SUCCESS) {
-        DEBUG ((EFI_D_INFO, "Card should be SD\n"));
-        if (IsHCS) {
-            MmcHostInstance->CardInfo.CardType = SD_CARD_2;
-        } else {
-            MmcHostInstance->CardInfo.CardType = SD_CARD;
-        }
+      DEBUG ((EFI_D_INFO, "Card should be SD\n"));
+      if (IsHCS) {
+        MmcHostInstance->CardInfo.CardType = SD_CARD_2;
+      } else {
+        MmcHostInstance->CardInfo.CardType = SD_CARD;
+      }
 
-        // Note: The first time CmdArg will be zero
-        CmdArg = ((UINTN *) &(MmcHostInstance->CardInfo.OCRData))[0];
-        if (IsHCS) {
-            CmdArg |= BIT30;
-        }
-        Status = MmcHost->SendCommand (MmcHost, MMC_ACMD41, CmdArg);
-        if (!EFI_ERROR (Status)) {
-          MmcHost->ReceiveResponse (MmcHost, MMC_RESPONSE_TYPE_OCR, Response);
-          ((UINT32 *) &(MmcHostInstance->CardInfo.OCRData))[0] = Response[0];
-        }
+      // Note: The first time CmdArg will be zero
+      CmdArg = ((UINTN *) &(MmcHostInstance->CardInfo.OCRData))[0];
+      if (IsHCS) {
+        CmdArg |= BIT30;
+      }
+      Status = MmcHost->SendCommand (MmcHost, MMC_ACMD41, CmdArg);
+      if (!EFI_ERROR (Status)) {
+        MmcHost->ReceiveResponse (MmcHost, MMC_RESPONSE_TYPE_OCR, Response);
+        ((UINT32 *) &(MmcHostInstance->CardInfo.OCRData))[0] = Response[0];
+      }
     } else {
-        DEBUG ((EFI_D_INFO, "Card should be MMC\n"));
-        MmcHostInstance->CardInfo.CardType = MMC_CARD;
+      DEBUG ((EFI_D_INFO, "Card should be MMC\n"));
+      MmcHostInstance->CardInfo.CardType = MMC_CARD;
 
-        Status = MmcHost->SendCommand (MmcHost, MMC_CMD1, 0x800000);
-        if (!EFI_ERROR (Status)) {
-          MmcHost->ReceiveResponse (MmcHost, MMC_RESPONSE_TYPE_OCR, Response);
-          ((UINT32 *) &(MmcHostInstance->CardInfo.OCRData))[0] = Response[0];
-        }
+      Status = MmcHost->SendCommand (MmcHost, MMC_CMD1, 0x800000);
+      if (!EFI_ERROR (Status)) {
+        MmcHost->ReceiveResponse (MmcHost, MMC_RESPONSE_TYPE_OCR, Response);
+        ((UINT32 *) &(MmcHostInstance->CardInfo.OCRData))[0] = Response[0];
+      }
     }
 
     if (!EFI_ERROR (Status)) {
       if (!MmcHostInstance->CardInfo.OCRData.PowerUp) {
-          MicroSecondDelay (1);
-          Timeout--;
+        MicroSecondDelay (1);
+        Timeout--;
       } else {
-          if ((MmcHostInstance->CardInfo.CardType == SD_CARD_2) && (MmcHostInstance->CardInfo.OCRData.AccessMode & BIT1)) {
-              MmcHostInstance->CardInfo.CardType = SD_CARD_2_HIGH;
-              DEBUG ((EFI_D_ERROR, "High capacity card.\n"));
-          }
-          break;  // The MMC/SD card is ready. Continue the Identification Mode
+        if ((MmcHostInstance->CardInfo.CardType == SD_CARD_2) && (MmcHostInstance->CardInfo.OCRData.AccessMode & BIT1)) {
+          MmcHostInstance->CardInfo.CardType = SD_CARD_2_HIGH;
+          DEBUG ((EFI_D_ERROR, "High capacity card.\n"));
+        }
+        break;  // The MMC/SD card is ready. Continue the Identification Mode
       }
     } else {
       MicroSecondDelay (1);
@@ -380,8 +412,9 @@ EFI_STATUS InitializeMmcDevice (
   EFI_STATUS              Status;
   UINTN                   CardSize, NumBlocks, BlockSize, CmdArg;
   EFI_MMC_HOST_PROTOCOL   *MmcHost;
-  UINTN                   BlockCount = 1;
-  
+  UINTN                   BlockCount;
+
+  BlockCount = 1;
   MmcHost = MmcHostInstance->MmcHost;
 
   MmcIdentificationMode (MmcHostInstance);
@@ -390,7 +423,7 @@ EFI_STATUS InitializeMmcDevice (
   CmdArg = MmcHostInstance->CardInfo.RCA << 16;
   Status = MmcHost->SendCommand (MmcHost, MMC_CMD9, CmdArg);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "MmcIdentificationMode(MMC_CMD9): Error, Status=%r\n", Status));
+    DEBUG((EFI_D_ERROR, "%a(MMC_CMD9): Error, Status=%r\n", __FUNCTION__, Status));
     return Status;
   }
   //Read Response
@@ -422,20 +455,21 @@ EFI_STATUS InitializeMmcDevice (
   CmdArg = MmcHostInstance->CardInfo.RCA << 16;
   Status = MmcHost->SendCommand (MmcHost, MMC_CMD7, CmdArg);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "MmcIdentificationMode(MMC_CMD7): Error and Status = %r\n", Status));
+    DEBUG((EFI_D_ERROR, "%a(MMC_CMD7): Error and Status = %r\n", __FUNCTION__, Status));
     return Status;
   }
 
   Status = MmcNotifyState (MmcHostInstance, MmcTransferState);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "MmcIdentificationMode() : Error MmcTransferState\n"));
+    DEBUG((EFI_D_ERROR, "%a(): Error MmcTransferState\n", __FUNCTION__));
     return Status;
   }
 
   // Set Block Length
   Status = MmcHost->SendCommand (MmcHost, MMC_CMD16, MmcHostInstance->BlockIo.Media->BlockSize);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "MmcIdentificationMode(MMC_CMD16): Error MmcHostInstance->BlockIo.Media->BlockSize: %d and Error = %r\n", MmcHostInstance->BlockIo.Media->BlockSize, Status));
+    DEBUG((EFI_D_ERROR, "%a(MMC_CMD16): Error MmcHostInstance->BlockIo.Media->BlockSize: %d and Error = %r\n",
+                        __FUNCTION__, MmcHostInstance->BlockIo.Media->BlockSize, Status));
     return Status;
   }
 
@@ -493,6 +527,22 @@ MmcDetectCard (
   }
 }
 
+EFI_STATUS
+MmcStopTransmission (
+  EFI_MMC_HOST_PROTOCOL     *MmcHost
+  )
+{
+  EFI_STATUS              Status;
+  UINT32                  Response[4];
+  // Command 12 - Stop transmission (ends read or write)
+  // Normally only needed for streaming transfers or after error.
+  Status = MmcHost->SendCommand (MmcHost, MMC_CMD12, 0);
+  if (!EFI_ERROR (Status)) {
+    MmcHost->ReceiveResponse (MmcHost, MMC_RESPONSE_TYPE_R1b, Response);
+  }
+  return Status;
+}
+
 #define MMCI0_BLOCKLEN 512
 #define MMCI0_TIMEOUT  10000
 
@@ -514,10 +564,12 @@ MmcIoBlocks (
   MMC_HOST_INSTANCE       *MmcHostInstance;
   EFI_MMC_HOST_PROTOCOL   *MmcHost;
   UINTN                   BytesRemainingToBeTransfered;
-  UINTN                   BlockCount = 1;
+  UINTN                   BlockCount;
+  EFI_TPL                 Tpl;
 
+  BlockCount = 1;
   MmcHostInstance = MMC_HOST_INSTANCE_FROM_BLOCK_IO_THIS (This);
-  ASSERT (MmcHostInstance != 0);
+  ASSERT(MmcHostInstance != NULL);
   MmcHost = MmcHostInstance->MmcHost;
   ASSERT (MmcHost);
 
@@ -525,7 +577,7 @@ MmcIoBlocks (
     return EFI_MEDIA_CHANGED;
   }
 
-  if ((MmcHost == 0)|| (Buffer == NULL)) {
+  if ((MmcHost == NULL) || (Buffer == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -587,61 +639,44 @@ MmcIoBlocks (
     }
 
     if (Transfer == MMC_IOBLOCKS_READ) {
-#ifndef USE_STREAM
       // Read a single block
       Cmd = MMC_CMD17;
-#else
-      //TODO: Should we support read stream (MMC_CMD11)
-#endif
     } else {
-#ifndef USE_STREAM
       // Write a single block
       Cmd = MMC_CMD24;
-#else
-      //TODO: Should we support write stream (MMC_CMD20)
-#endif
     }
+    // Raise Tpl to protect against Timer events between command and block IO
+    Tpl = RaiseTplIfLow() ;
     Status = MmcHost->SendCommand (MmcHost, Cmd, CmdArg);
     if (EFI_ERROR (Status)) {
+      gBS->RestoreTPL(Tpl);
       DEBUG ((EFI_D_ERROR, "MmcIoBlocks(MMC_CMD%d): Error %r\n", Cmd, Status));
       return Status;
     }
 
     if (Transfer == MMC_IOBLOCKS_READ) {
-#ifndef USE_STREAM
       // Read one block of Data
       Status = MmcHost->ReadBlockData (MmcHost, Lba, This->Media->BlockSize, Buffer);
+      gBS->RestoreTPL(Tpl) ;
       if (EFI_ERROR (Status)) {
         DEBUG ((EFI_D_BLKIO, "MmcIoBlocks(): Error Read Block Data and Status = %r\n", Status));
+        MmcStopTransmission(MmcHost) ;
         return Status;
       }
-#else
-      //TODO: Read a stream
-      ASSERT (0);
-#endif
       Status = MmcNotifyState (MmcHostInstance, MmcProgrammingState);
       if (EFI_ERROR (Status)) {
         DEBUG ((EFI_D_ERROR, "MmcIoBlocks() : Error MmcProgrammingState\n"));
         return Status;
       }
     } else {
-#ifndef USE_STREAM
       // Write one block of Data
       Status = MmcHost->WriteBlockData (MmcHost, Lba, This->Media->BlockSize, Buffer);
+      gBS->RestoreTPL(Tpl) ;
       if (EFI_ERROR (Status)) {
         DEBUG ((EFI_D_BLKIO, "MmcIoBlocks(): Error Write Block Data and Status = %r\n", Status));
+        MmcStopTransmission(MmcHost) ;
         return Status;
       }
-#else
-      //TODO: Write a stream
-      ASSERT (0);
-#endif
-    }
-
-    // Command 12 - Stop transmission (ends read)
-    Status = MmcHost->SendCommand (MmcHost, MMC_CMD12, 0);
-    if (!EFI_ERROR (Status)) {
-      MmcHost->ReceiveResponse (MmcHost, MMC_RESPONSE_TYPE_R1b, Response);
     }
 
     // Command 13 - Read status and wait for programming to complete (return to tran)
