@@ -142,4 +142,9 @@
   
   gArmPlatformTokenSpaceGuid.PcdDefaultConInPaths|L""|VOID*|0x0000001B
   gArmPlatformTokenSpaceGuid.PcdDefaultConOutPaths|L""|VOID*|0x0000001C
-  
+
+  #
+  # Ethernet Driver PCDs
+  #
+  gArmPlatformTokenSpaceGuid.PcdLan91xDxeBaseAddress|0x0|UINT32|0x000000FE
+ 

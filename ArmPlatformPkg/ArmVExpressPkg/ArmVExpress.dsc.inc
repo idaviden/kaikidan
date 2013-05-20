@@ -338,3 +338,9 @@
   gArmPlatformTokenSpaceGuid.PcdDefaultConInPaths|L"VenHw(D3987D4B-971A-435F-8CAF-4967EB627241)/Uart(38400,8,N,1)/VenPcAnsi()"
   gArmPlatformTokenSpaceGuid.PcdPlatformBootTimeOut|10
 
+[Components.common]
+  #
+  # Networking stack
+  #
+  ArmPlatformPkg/Drivers/LAN91xDxe/LAN91xDxe.inf
+
