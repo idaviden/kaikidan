@@ -402,7 +402,7 @@ MciNotifyState (
     MCI_TRACE ("MciNotifyState(MmcHwInitializationState): TurnOn MCI");
     // Setup clock
     //  - 0x1D = 29 => should be the clock divider to be less than 400kHz at MCLK = 24Mhz
-    MmioWrite32 (MCI_CLOCK_CONTROL_REG, 0x1D | MCI_CLOCK_ENABLE | MCI_CLOCK_POWERSAVE);
+    MmioWrite32 (MCI_CLOCK_CONTROL_REG, 0x1D | MCI_CLOCK_ENABLE | MCI_CLOCK_ARM_HWFCEN);
 
     // Set the voltage
     MmioWrite32 (MCI_POWER_CONTROL_REG, MCI_POWER_OPENDRAIN | (15<<2));
