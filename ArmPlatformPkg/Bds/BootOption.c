@@ -90,6 +90,7 @@ BootOptionStart (
         Status = GetEnvironmentVariable ((CHAR16 *)L"Fdt", &gArmGlobalVariableGuid,
                    DefaultFdtDevicePath, &FdtDevicePathSize, (VOID **)&FdtDevicePath);
         ASSERT_EFI_ERROR(Status);
+        FreePool (DefaultFdtDevicePath);
       }
       Status = BdsBootLinuxFdt (BootOption->FilePathList,
                                 Initrd, // Initrd

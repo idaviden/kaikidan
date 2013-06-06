@@ -80,13 +80,6 @@
   ldr  $Reg, =($Data) 
   MEND 
   
-  MACRO
-  GetCorePositionFromMpId $Pos, $MpId, $Tmp
-  lsr   $Pos, $MpId, #6
-  and   $Tmp, $MpId, #3
-  add   $Pos, $Pos, $Tmp
-  MEND
-  
   ; The reserved place must be 8-bytes aligned for pushing 64-bit variable on the stack
   ; Note: Global Size will be modified
   MACRO

@@ -62,7 +62,6 @@
 #define MCI_CLOCK_POWERSAVE             BIT9
 #define MCI_CLOCK_BYPASS                BIT10
 #define MCI_CLOCK_WIDEBUS               BIT11
-#define MCI_CLOCK_ARM_HWFCEN            BIT12
 
 #define MCI_STATUS_CMD_CMDCRCFAIL       BIT0
 #define MCI_STATUS_CMD_DATACRCFAIL      BIT1

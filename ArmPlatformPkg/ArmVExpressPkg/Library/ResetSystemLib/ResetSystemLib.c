@@ -49,13 +49,12 @@ LibResetSystem (
   case EfiResetWarm:
     // Map a warm reset into a cold reset
   case EfiResetCold:
+  case EfiResetShutdown:
     // Send the REBOOT function to the platform microcontroller
     ArmPlatformSysConfigSet (SYS_CFG_REBOOT, 0);
-    break;
-  case EfiResetShutdown:
-    // Send the SHUTDOWN function to the platform microcontroller
-    ArmPlatformSysConfigSet (SYS_CFG_SHUTDOWN, 0);
-    break;
+
+    // We should never be here
+    while(1);
   }
 
   ASSERT(FALSE);

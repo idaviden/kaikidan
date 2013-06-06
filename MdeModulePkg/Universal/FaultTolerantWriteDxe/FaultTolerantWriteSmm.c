@@ -369,7 +369,10 @@ SmmFaultTolerantWriteHandler (
   VOID                                             *PrivateData;
   EFI_HANDLE                                       SmmFvbHandle;
   UINTN                                            InfoSize;
-
+  UINTN                                            CommBufferPayloadSize;
+  UINTN                                            PrivateDataSize;
+  UINTN                                            Length;
+  UINTN                                            TempCommBufferSize;
 
   //
   // If input is invalid, stop processing this SMI
@@ -378,12 +381,16 @@ SmmFaultTolerantWriteHandler (
     return EFI_SUCCESS;
   }
 
-  if (*CommBufferSize < SMM_FTW_COMMUNICATE_HEADER_SIZE) {
+  TempCommBufferSize = *CommBufferSize;
+
+  if (TempCommBufferSize < SMM_FTW_COMMUNICATE_HEADER_SIZE) {
+    DEBUG ((EFI_D_ERROR, "SmmFtwHandler: SMM communication buffer size invalid!\n"));
     return EFI_SUCCESS;
   }
+  CommBufferPayloadSize = TempCommBufferSize - SMM_FTW_COMMUNICATE_HEADER_SIZE;
 
-  if (!InternalIsAddressValid ((UINTN)CommBuffer, *CommBufferSize)) {
-    DEBUG ((EFI_D_ERROR, "SMM communication buffer in SMRAM or overflow!\n"));
+  if (!InternalIsAddressValid ((UINTN)CommBuffer, TempCommBufferSize)) {
+    DEBUG ((EFI_D_ERROR, "SmmFtwHandler: SMM communication buffer in SMRAM or overflow!\n"));
     return EFI_SUCCESS;
   }
 
@@ -400,17 +407,11 @@ SmmFaultTolerantWriteHandler (
 
   switch (SmmFtwFunctionHeader->Function) {
     case FTW_FUNCTION_GET_MAX_BLOCK_SIZE:
-      SmmGetMaxBlockSizeHeader = (SMM_FTW_GET_MAX_BLOCK_SIZE_HEADER *) SmmFtwFunctionHeader->Data;
-      InfoSize = sizeof (SMM_FTW_GET_MAX_BLOCK_SIZE_HEADER);
-
-      //
-      // SMRAM range check already covered before
-      //
-      if (InfoSize > *CommBufferSize - SMM_FTW_COMMUNICATE_HEADER_SIZE) {
-        DEBUG ((EFI_D_ERROR, "Data size exceed communication buffer size limit!\n"));
-        Status = EFI_ACCESS_DENIED;
-        break;
+      if (CommBufferPayloadSize < sizeof (SMM_FTW_GET_MAX_BLOCK_SIZE_HEADER)) {
+        DEBUG ((EFI_D_ERROR, "GetMaxBlockSize: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
       }
+      SmmGetMaxBlockSizeHeader = (SMM_FTW_GET_MAX_BLOCK_SIZE_HEADER *) SmmFtwFunctionHeader->Data;
 
       Status = FtwGetMaxBlockSize (
                  &mFtwDevice->FtwInstance,
@@ -419,6 +420,10 @@ SmmFaultTolerantWriteHandler (
       break;
       
     case FTW_FUNCTION_ALLOCATE:
+      if (CommBufferPayloadSize < sizeof (SMM_FTW_ALLOCATE_HEADER)) {
+        DEBUG ((EFI_D_ERROR, "Allocate: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
+      }
       SmmFtwAllocateHeader = (SMM_FTW_ALLOCATE_HEADER *) SmmFtwFunctionHeader->Data;
       Status = FtwAllocate (
                  &mFtwDevice->FtwInstance,
@@ -429,11 +434,36 @@ SmmFaultTolerantWriteHandler (
       break;
       
     case FTW_FUNCTION_WRITE:
+      if (CommBufferPayloadSize < OFFSET_OF (SMM_FTW_WRITE_HEADER, Data)) {
+        DEBUG ((EFI_D_ERROR, "Write: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
+      }
       SmmFtwWriteHeader = (SMM_FTW_WRITE_HEADER *) SmmFtwFunctionHeader->Data;
-      if (SmmFtwWriteHeader->PrivateDataSize == 0) {
+      Length = SmmFtwWriteHeader->Length;
+      PrivateDataSize = SmmFtwWriteHeader->PrivateDataSize;
+      if (((UINTN)(~0) - Length < OFFSET_OF (SMM_FTW_WRITE_HEADER, Data)) ||
+        ((UINTN)(~0) - PrivateDataSize < OFFSET_OF (SMM_FTW_WRITE_HEADER, Data) + Length)) {
+        //
+        // Prevent InfoSize overflow
+        //
+        Status = EFI_ACCESS_DENIED;
+        break;
+      }
+      InfoSize = OFFSET_OF (SMM_FTW_WRITE_HEADER, Data) + Length + PrivateDataSize;
+
+      //
+      // SMRAM range check already covered before
+      //
+      if (InfoSize > CommBufferPayloadSize) {
+        DEBUG ((EFI_D_ERROR, "Write: Data size exceed communication buffer size limit!\n"));
+        Status = EFI_ACCESS_DENIED;
+        break;
+      }
+
+      if (PrivateDataSize == 0) {
         PrivateData = NULL;
       } else {
-        PrivateData = (VOID *)&SmmFtwWriteHeader->Data[SmmFtwWriteHeader->Length];
+        PrivateData = (VOID *)&SmmFtwWriteHeader->Data[Length];
       }
       Status = GetFvbByAddressAndAttribute (
                  SmmFtwWriteHeader->FvbBaseAddress, 
@@ -445,7 +475,7 @@ SmmFaultTolerantWriteHandler (
                    &mFtwDevice->FtwInstance,
                    SmmFtwWriteHeader->Lba,
                    SmmFtwWriteHeader->Offset,
-                   SmmFtwWriteHeader->Length,
+                   Length,
                    PrivateData,
                    SmmFvbHandle,
                    SmmFtwWriteHeader->Data
@@ -454,6 +484,10 @@ SmmFaultTolerantWriteHandler (
       break;
       
     case FTW_FUNCTION_RESTART:
+      if (CommBufferPayloadSize < sizeof (SMM_FTW_RESTART_HEADER)) {
+        DEBUG ((EFI_D_ERROR, "Restart: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
+      }
       SmmFtwRestartHeader = (SMM_FTW_RESTART_HEADER *) SmmFtwFunctionHeader->Data;
       Status = GetFvbByAddressAndAttribute (
                  SmmFtwRestartHeader->FvbBaseAddress, 
@@ -470,20 +504,25 @@ SmmFaultTolerantWriteHandler (
       break;
       
     case FTW_FUNCTION_GET_LAST_WRITE:
+      if (CommBufferPayloadSize < OFFSET_OF (SMM_FTW_GET_LAST_WRITE_HEADER, Data)) {
+        DEBUG ((EFI_D_ERROR, "GetLastWrite: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
+      }
       SmmFtwGetLastWriteHeader = (SMM_FTW_GET_LAST_WRITE_HEADER *) SmmFtwFunctionHeader->Data;
-      if ((UINTN)(~0) - SmmFtwGetLastWriteHeader->PrivateDataSize < OFFSET_OF (SMM_FTW_GET_LAST_WRITE_HEADER, Data)){
+      PrivateDataSize = SmmFtwGetLastWriteHeader->PrivateDataSize;
+      if ((UINTN)(~0) - PrivateDataSize < OFFSET_OF (SMM_FTW_GET_LAST_WRITE_HEADER, Data)){
         //
         // Prevent InfoSize overflow
         //
         Status = EFI_ACCESS_DENIED;
         break;
       }
-      InfoSize = OFFSET_OF (SMM_FTW_GET_LAST_WRITE_HEADER, Data) + SmmFtwGetLastWriteHeader->PrivateDataSize;
+      InfoSize = OFFSET_OF (SMM_FTW_GET_LAST_WRITE_HEADER, Data) + PrivateDataSize;
 
       //
       // SMRAM range check already covered before
       //
-      if (InfoSize > *CommBufferSize - SMM_FTW_COMMUNICATE_HEADER_SIZE) {
+      if (InfoSize > CommBufferPayloadSize) {
         DEBUG ((EFI_D_ERROR, "Data size exceed communication buffer size limit!\n"));
         Status = EFI_ACCESS_DENIED;
         break;
@@ -495,10 +534,11 @@ SmmFaultTolerantWriteHandler (
                  &SmmFtwGetLastWriteHeader->Lba,
                  &SmmFtwGetLastWriteHeader->Offset,
                  &SmmFtwGetLastWriteHeader->Length,
-                 &SmmFtwGetLastWriteHeader->PrivateDataSize,
+                 &PrivateDataSize,
                  (VOID *)SmmFtwGetLastWriteHeader->Data,
                  &SmmFtwGetLastWriteHeader->Complete
                  );
+      SmmFtwGetLastWriteHeader->PrivateDataSize = PrivateDataSize;
       break;
 
     default:
@@ -532,6 +572,7 @@ FvbNotificationEvent (
   EFI_STATUS                              Status;
   EFI_SMM_FAULT_TOLERANT_WRITE_PROTOCOL   *FtwProtocol;
   EFI_HANDLE                              SmmFtwHandle;
+  EFI_HANDLE                              FtwHandle;
   
   //
   // Just return to avoid install SMM FaultTolerantWriteProtocol again
@@ -553,7 +594,7 @@ FvbNotificationEvent (
   if (EFI_ERROR(Status)) {
     return Status;
   }
-  
+
   //
   // Install protocol interface
   //
@@ -565,12 +606,18 @@ FvbNotificationEvent (
                     );
   ASSERT_EFI_ERROR (Status); 
 
+  ///
+  /// Register SMM FTW SMI handler
+  ///
+  Status = gSmst->SmiHandlerRegister (SmmFaultTolerantWriteHandler, &gEfiSmmFaultTolerantWriteProtocolGuid, &SmmFtwHandle);
+  ASSERT_EFI_ERROR (Status);
+
   //
   // Notify the Ftw wrapper driver SMM Ftw is ready
   //
-  SmmFtwHandle = NULL;
+  FtwHandle = NULL;
   Status = gBS->InstallProtocolInterface (
-                  &SmmFtwHandle,
+                  &FtwHandle,
                   &gEfiSmmFaultTolerantWriteProtocolGuid,
                   EFI_NATIVE_INTERFACE,
                   NULL
@@ -621,7 +668,6 @@ SmmFaultTolerantWriteInitialize (
   )
 {
   EFI_STATUS                              Status;
-  EFI_HANDLE                              FtwHandle;
   EFI_SMM_ACCESS2_PROTOCOL                *SmmAccess;
   UINTN                                   Size;
   VOID                                    *SmmEndOfDxeRegistration;
@@ -677,12 +723,6 @@ SmmFaultTolerantWriteInitialize (
   ASSERT_EFI_ERROR (Status);
 
   FvbNotificationEvent (NULL, NULL, NULL);
-
-  ///
-  /// Register SMM FTW SMI handler
-  ///
-  Status = gSmst->SmiHandlerRegister (SmmFaultTolerantWriteHandler, &gEfiSmmFaultTolerantWriteProtocolGuid, &FtwHandle);
-  ASSERT_EFI_ERROR (Status);
   
   return EFI_SUCCESS;
 }

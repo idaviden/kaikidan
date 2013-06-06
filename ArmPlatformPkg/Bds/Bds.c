@@ -277,13 +277,17 @@ DefineDefaultBootEntries (
         }
 
         BootArguments = (ARM_BDS_LOADER_ARGUMENTS*)AllocatePool (sizeof(ARM_BDS_LOADER_ARGUMENTS) + CmdLineSize + InitrdSize + FdtLocalSize);
-        BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
-        BootArguments->LinuxArguments.InitrdSize = InitrdSize;
-        BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
+        if ( BootArguments != NULL ) {
+          BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
+          BootArguments->LinuxArguments.InitrdSize = InitrdSize;
+          BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
 
-        CopyMem ((VOID*)(BootArguments + 1), (CHAR8*)PcdGetPtr(PcdDefaultBootArgument), CmdLineSize);
-        CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
-        CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
+          CopyMem ((VOID*)(BootArguments + 1), (CHAR8*)PcdGetPtr(PcdDefaultBootArgument), CmdLineSize);
+          CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
+          CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
+        }
+        FreePool (FdtLocalPath);
+        FreePool (InitrdPath);
       } else {
         BootArguments = NULL;
       }
@@ -296,6 +300,7 @@ DefineDefaultBootEntries (
         &BdsLoadOption
         );
       FreePool (BdsLoadOption);
+      FreePool (BootDevicePath);
     } else {
       Status = EFI_UNSUPPORTED;
     }

@@ -25,7 +25,7 @@
 #include <Guid/FileSystemInfo.h>
 
 #define IS_DEVICE_PATH_NODE(node,type,subtype) (((node)->Type == (type)) && ((node)->SubType == (subtype)))
-#define LOCAL_FDT_RESPONSE_LEN 2	// 1 character, plus carriage return
+#define LOCAL_FDT_RESPONSE_LEN 2  // 1 character, plus carriage return
 
 EFI_STATUS
 BdsLoadOptionFileSystemList (

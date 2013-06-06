@@ -46,9 +46,7 @@
 #else
   //
   // Assume standard ARM alignment. 
-  // Need to check portability of long long
   //
-//  #include <stdint.h>
   typedef unsigned long long  UINT64;
   typedef long long           INT64;
   typedef unsigned int        UINT32;

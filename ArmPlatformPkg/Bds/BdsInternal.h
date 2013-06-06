@@ -38,6 +38,11 @@
 #define BOOT_DEVICE_OPTION_MAX        300
 #define BOOT_DEVICE_ADDRESS_MAX       (sizeof(L"0x0000000000000000"))
 
+// Length of the buffer used to hold the user input for the main menu
+// This includes the NULL terminator
+// 1 chars + NULL gives room for up to 9 boot device configs
+#define BOOT_OPTION_LEN   2
+
 #define ARM_BDS_OPTIONAL_DATA_SIGNATURE   SIGNATURE_32('a', 'b', 'o', 'd')
 
 #define IS_ARM_BDS_BOOTENTRY(ptr)  (ReadUnaligned32 ((CONST UINT32*)&((ARM_BDS_LOADER_OPTIONAL_DATA*)((ptr)->OptionalData))->Header.Signature) == ARM_BDS_OPTIONAL_DATA_SIGNATURE)

@@ -1,6 +1,7 @@
 /** @file
   Support for PxeBc dhcp functions.
 
+Copyright (c) 2013, Red Hat, Inc.
 Copyright (c) 2007 - 2012, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -1536,6 +1537,19 @@ PxeBcSelectBootPrompt (
   }
 
   VendorOpt = &Packet->PxeVendorOption;
+  //
+  // According to the PXE specification 2.1, Table 2-1 PXE DHCP Options  (Full  
+  // List), we must not consider a boot prompt or boot menu if all of the  
+  // following hold:
+  // - the PXE_DISCOVERY_CONTROL PXE tag is present inside the Vendor Options
+  //   (=43) DHCP tag, and
+  // - the PXE_DISCOVERY_CONTROL PXE tag has bit 3 set, and  
+  // - a boot file name has been presented with DHCP option 67.
+  //
+  if (IS_DISABLE_PROMPT_MENU (VendorOpt->DiscoverCtrl) &&
+      Packet->Dhcp4Option[PXEBC_DHCP4_TAG_INDEX_BOOTFILE] != NULL) {
+    return EFI_ABORTED;
+  }
 
   if (!IS_VALID_BOOT_PROMPT (VendorOpt->BitMap)) {
     return EFI_SUCCESS;

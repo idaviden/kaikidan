@@ -163,7 +163,7 @@ BootMenuAddBootOption (
     Status = GetHIInputBoolean (&InitrdSupport);
     if (EFI_ERROR(Status)) {
       Status = EFI_ABORTED;
-      goto EXIT;
+      goto FREE_DEVICE_PATH;
     }
 
     if (InitrdSupport) {
@@ -171,7 +171,7 @@ BootMenuAddBootOption (
       Status = SupportedBootDevice->Support->CreateDevicePathNode (L"initrd", &InitrdPathNodes, NULL, NULL);
       if (EFI_ERROR(Status) && Status != EFI_NOT_FOUND) { // EFI_NOT_FOUND is returned on empty input string, but we can boot without an initrd
         Status = EFI_ABORTED;
-        goto EXIT;
+        goto FREE_DEVICE_PATH;
       }
 
       if (InitrdPathNodes != NULL) {
@@ -179,7 +179,7 @@ BootMenuAddBootOption (
         InitrdPath = AppendDevicePath (SupportedBootDevice->DevicePathProtocol, (CONST EFI_DEVICE_PATH_PROTOCOL *)InitrdPathNodes);
         if (InitrdPath == NULL) {
           Status = EFI_OUT_OF_RESOURCES;
-          goto EXIT;
+          goto FREE_DEVICE_PATH;
         }
       } else {
         InitrdPath = NULL;
@@ -200,7 +200,7 @@ BootMenuAddBootOption (
       Status = SupportedBootDevice->Support->CreateDevicePathNode (L"local FDT", &FdtLocalPathNode, NULL, NULL);
       if (EFI_ERROR(Status) || (FdtLocalPathNode == NULL)) {
         Status = EFI_ABORTED;
-        goto EXIT;
+        goto FREE_DEVICE_PATH;
       }
 
       if (FdtLocalPathNode != NULL) {
@@ -218,13 +218,14 @@ BootMenuAddBootOption (
     FdtLocalSize = GetDevicePathSize (FdtLocalPath);
 
     BootArguments = (ARM_BDS_LOADER_ARGUMENTS*)AllocatePool (sizeof(ARM_BDS_LOADER_ARGUMENTS) + CmdLineSize + InitrdSize + FdtLocalSize);
-
-    BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
-    BootArguments->LinuxArguments.InitrdSize = InitrdSize;
-    BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
-    CopyMem ((VOID*)(&BootArguments->LinuxArguments + 1), CmdLine, CmdLineSize);
-    CopyMem ((VOID*)((UINTN)(&BootArguments->LinuxArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
-    CopyMem ((VOID*)((UINTN)(&BootArguments->LinuxArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
+    if ( BootArguments != NULL ) {
+      BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
+      BootArguments->LinuxArguments.InitrdSize = InitrdSize;
+      BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
+      CopyMem ((VOID*)(&BootArguments->LinuxArguments + 1), CmdLine, CmdLineSize);
+      CopyMem ((VOID*)((UINTN)(&BootArguments->LinuxArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
+      CopyMem ((VOID*)((UINTN)(&BootArguments->LinuxArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
+    }
   } else {
     BootArguments = NULL;
   }
@@ -238,6 +239,10 @@ BootMenuAddBootOption (
 
   // Create new entry
   BdsLoadOptionEntry = (BDS_LOAD_OPTION_ENTRY*)AllocatePool (sizeof(BDS_LOAD_OPTION_ENTRY));
+  if ( BdsLoadOptionEntry == NULL ) {
+    Status = EFI_ABORTED;
+    goto FREE_DEVICE_PATH;
+  }
   Status = BootOptionCreate (Attributes, BootDescription, DevicePath, BootType, BootArguments, &BdsLoadOptionEntry->BdsLoadOption);
   if (!EFI_ERROR(Status)) {
     InsertTailList (BootOptionsList, &BdsLoadOptionEntry->Link);
@@ -466,12 +471,14 @@ BootMenuUpdateBootOption (
           if (FdtLocalPathNode != NULL) {
             // Duplicate Linux kernel Device Path
             TempFdtLocalPath = DuplicateDevicePath (BootOption->FilePathList);
-            // Replace Linux kernel Node by EndNode
-            SetDevicePathEndNode (GetLastDevicePathNode (TempFdtLocalPath));
-            // Append the Device Path node to the select device path
-            FdtLocalPath = AppendDevicePathNode (TempFdtLocalPath, (CONST EFI_DEVICE_PATH_PROTOCOL *)FdtLocalPathNode);
-            FreePool (TempFdtLocalPath);
-            FdtLocalSize = GetDevicePathSize (FdtLocalPath);
+            if ( TempFdtLocalPath != NULL ) {
+              // Replace Linux kernel Node by EndNode
+              SetDevicePathEndNode (GetLastDevicePathNode (TempFdtLocalPath));
+              // Append the Device Path node to the select device path
+              FdtLocalPath = AppendDevicePathNode (TempFdtLocalPath, (CONST EFI_DEVICE_PATH_PROTOCOL *)FdtLocalPathNode);
+              FreePool (TempFdtLocalPath);
+              FdtLocalSize = GetDevicePathSize (FdtLocalPath);
+            }
           } else {
             FdtLocalPath = NULL;
           }
@@ -548,12 +555,14 @@ BootMenuUpdateBootOption (
     CmdLineSize = AsciiStrSize (CmdLine);
 
     BootArguments = (ARM_BDS_LOADER_ARGUMENTS*)AllocatePool(sizeof(ARM_BDS_LOADER_ARGUMENTS) + CmdLineSize + InitrdSize + FdtLocalSize);
-    BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
-    BootArguments->LinuxArguments.InitrdSize = InitrdSize;
-    BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
-    CopyMem (&BootArguments->LinuxArguments + 1, CmdLine, CmdLineSize);
-    CopyMem ((VOID*)((UINTN)(&BootArguments->LinuxArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
-    CopyMem ((VOID*)((UINTN)(&BootArguments->LinuxArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
+    if ( BootArguments != NULL ) {
+      BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
+      BootArguments->LinuxArguments.InitrdSize = InitrdSize;
+      BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
+      CopyMem (&BootArguments->LinuxArguments + 1, CmdLine, CmdLineSize);
+      CopyMem ((VOID*)((UINTN)(&BootArguments->LinuxArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
+      CopyMem ((VOID*)((UINTN)(&BootArguments->LinuxArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
+    }
   } else {
     BootArguments = NULL;
   }
@@ -696,32 +705,12 @@ BootShell (
   return Status;
 }
 
-EFI_STATUS
-Reboot (
-  IN LIST_ENTRY *BootOptionsList
-  )
-{
-  gRT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
-  return EFI_UNSUPPORTED;
-}
-
-EFI_STATUS
-Shutdown (
-  IN LIST_ENTRY *BootOptionsList
-  )
-{
-  gRT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
-  return EFI_UNSUPPORTED;
-}
-
 struct BOOT_MAIN_ENTRY {
   CONST CHAR16* Description;
   EFI_STATUS (*Callback) (IN LIST_ENTRY *BootOptionsList);
 } BootMainEntries[] = {
     { L"Boot Manager", BootMenuManager },
     { L"Shell", BootShell },
-    { L"Reboot", Reboot },
-    { L"Shutdown", Shutdown },
 };
 
 
@@ -730,19 +719,20 @@ BootMenuMain (
   VOID
   )
 {
-  LIST_ENTRY                    BootOptionsList;
-  UINTN                         OptionCount;
-  UINTN                         HardCodedOptionCount;
-  UINTN                         BootOptionCount;
-  EFI_STATUS                    Status;
-  LIST_ENTRY*                   Entry;
-  BDS_LOAD_OPTION*              BootOption;
-  UINTN                         BootOptionSelected;
-  UINTN                         Index;
-  UINTN                         BootMainEntryCount;
-  CHAR8                         BootOptionSelectedStr[32];
-  EFI_DEVICE_PATH_PROTOCOL*     DefaultFdtDevicePath;
-  UINTN                         FdtDevicePathSize;
+  LIST_ENTRY                        BootOptionsList;
+  UINTN                             OptionCount;
+  UINTN                             BootOptionCount;
+  EFI_STATUS                        Status;
+  LIST_ENTRY*                       Entry;
+  BDS_LOAD_OPTION*                  BootOption;
+  UINTN                             BootOptionSelected;
+  UINTN                             Index;
+  UINTN                             BootMainEntryCount;
+  CHAR8                             BootOptionSelectedStr[BOOT_OPTION_LEN];
+  EFI_DEVICE_PATH_PROTOCOL*         DefaultFdtDevicePath;
+  UINTN                             FdtDevicePathSize;
+  EFI_DEVICE_PATH_TO_TEXT_PROTOCOL* DevicePathToTextProtocol;
+  CHAR16*                           DevicePathTxt;
 
 
   BootOption              = NULL;
@@ -765,8 +755,6 @@ BootMenuMain (
       Print(L"[%d] %s\n", OptionCount, BootOption->Description);
 
       //DEBUG_CODE_BEGIN();
-        CHAR16*                           DevicePathTxt;
-        EFI_DEVICE_PATH_TO_TEXT_PROTOCOL* DevicePathToTextProtocol;
         ARM_BDS_LOADER_OPTIONAL_DATA*     OptionalData;
         UINTN                             CmdLineSize;
         UINTN                             InitrdSize;
@@ -834,54 +822,55 @@ BootMenuMain (
 
     // Display the global FDT config
     Print(L"-----------------------\n");
-      {
-        EFI_DEVICE_PATH_FROM_TEXT_PROTOCOL*   EfiDevicePathFromTextProtocol;
-        EFI_DEVICE_PATH_PROTOCOL*             FdtDevicePath;
-        EFI_DEVICE_PATH_TO_TEXT_PROTOCOL*     DevicePathToTextProtocol;
-        CHAR16*                               DevicePathTxt;
+    {
+      EFI_DEVICE_PATH_FROM_TEXT_PROTOCOL*   EfiDevicePathFromTextProtocol;
+      EFI_DEVICE_PATH_PROTOCOL*             FdtDevicePath;
 
-        // Get the default FDT device path
-        Status = gBS->LocateProtocol (&gEfiDevicePathFromTextProtocolGuid, NULL, (VOID **)&EfiDevicePathFromTextProtocol);
-        ASSERT_EFI_ERROR(Status);
-        DefaultFdtDevicePath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdFdtDevicePath));
+      // Get the default FDT device path
+      Status = gBS->LocateProtocol (&gEfiDevicePathFromTextProtocolGuid, NULL, (VOID **)&EfiDevicePathFromTextProtocol);
+      ASSERT_EFI_ERROR(Status);
+      DefaultFdtDevicePath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdFdtDevicePath));
 
-        // Get the FDT device path
-        FdtDevicePathSize = GetDevicePathSize (DefaultFdtDevicePath);
-        Status = GetEnvironmentVariable ((CHAR16 *)L"Fdt", &gArmGlobalVariableGuid, DefaultFdtDevicePath, &FdtDevicePathSize, (VOID **)&FdtDevicePath);
+      // Get the FDT device path
+      FdtDevicePathSize = GetDevicePathSize (DefaultFdtDevicePath);
+      Status = GetEnvironmentVariable ((CHAR16 *)L"Fdt", &gArmGlobalVariableGuid, DefaultFdtDevicePath, &FdtDevicePathSize, (VOID **)&FdtDevicePath);
 
-        // Convert FdtDevicePath to text
-        if (EFI_ERROR(Status)) {
-          DevicePathTxt = L"not configured";
-        } else {
-          Status = gBS->LocateProtocol (&gEfiDevicePathToTextProtocolGuid, NULL, (VOID **)&DevicePathToTextProtocol);
-          DevicePathTxt = DevicePathToTextProtocol->ConvertDevicePathToText ( FdtDevicePath, TRUE, TRUE );
-        }
-        Print(L"Global FDT Config\n\t- %s\n", DevicePathTxt);
+      // Convert FdtDevicePath to text
+      if (EFI_ERROR(Status)) {
+        DevicePathTxt = L"not configured";
+      } else {
+        Status = gBS->LocateProtocol (&gEfiDevicePathToTextProtocolGuid, NULL, (VOID **)&DevicePathToTextProtocol);
+        DevicePathTxt = DevicePathToTextProtocol->ConvertDevicePathToText ( FdtDevicePath, TRUE, TRUE );
       }
+      Print(L"Global FDT Config\n\t- %s\n", DevicePathTxt);
+      FreePool(DevicePathTxt);
+      FreePool(DefaultFdtDevicePath);
+    }
 
     // Display the hardcoded Boot entries
     Print(L"-----------------------\n");
     for (Index = 0; Index < BootMainEntryCount; Index++) {
-      Print(L"[%c] %s\n", ('a'+Index), BootMainEntries[Index]);
+      Print(L"[%c] %s\n", ('a' + Index), BootMainEntries[Index]);
       OptionCount++;
     }
-    HardCodedOptionCount=Index;
 
     // Request the boot entry from the user
     BootOptionSelected = 0;
     while (BootOptionSelected == 0) {
       Print(L"Start: ");
-      Status = GetHIInputAscii (BootOptionSelectedStr,8);
+      Status = GetHIInputAscii (BootOptionSelectedStr, BOOT_OPTION_LEN);
 
-      if (BootOptionSelectedStr[0]-'0' <= OptionCount) {
-        BootOptionSelected = BootOptionSelectedStr[0] - '0';
-      } else if (BootOptionSelectedStr[0]-'a' <= HardCodedOptionCount) {
-        BootOptionSelected = BootOptionCount + 1 + BootOptionSelectedStr[0] - 'a';
-      }
+      if (!EFI_ERROR(Status)) {
+        if ((BootOptionSelectedStr[0] - '0') < OptionCount) {
+          BootOptionSelected = BootOptionSelectedStr[0] - '0';
+        } else if ((BootOptionSelectedStr[0] - 'a') < BootMainEntryCount) {
+          BootOptionSelected = BootOptionCount + 1 + BootOptionSelectedStr[0] - 'a';
+        }
 
-      if (EFI_ERROR(Status) || (BootOptionSelected == 0) || (BootOptionSelected > OptionCount)) {
-        Print(L"Invalid input (max %d)\n",(OptionCount-1));
-        BootOptionSelected = 0;
+        if ((BootOptionSelected == 0) || (BootOptionSelected > OptionCount)) {
+          Print(L"Invalid input, please choose a menu option from the list above\n");
+          BootOptionSelected = 0;
+        }
       }
     }
 
