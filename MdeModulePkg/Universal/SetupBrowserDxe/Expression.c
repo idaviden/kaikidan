@@ -1511,7 +1511,7 @@ IfrMid (
       Result->BufferLen = (UINT16)((BufferLen - Base) < Length ? (BufferLen - Base) : Length);    
       Result->Buffer = AllocateZeroPool (Result->BufferLen);
       ASSERT (Result->Buffer != NULL);
-      CopyMem (Result->Buffer, &Value[2].Buffer[Base], Result->BufferLen);
+      CopyMem (Result->Buffer, &Buffer[Base], Result->BufferLen);
     }
 
     FreePool (Value[2].Buffer);
