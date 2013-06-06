@@ -236,6 +236,9 @@ typedef struct {
   UINT32           Attributes;     // For EFI_IFR_VARSTORE_EFI: EFI Variable attribute
 
   CHAR16           *ConfigHdr;     // <ConfigHdr>
+  CHAR16           *ConfigRequest; // <ConfigRequest> = <ConfigHdr> + <RequestElement>
+                                   // <RequestElement> includes all fields which is used by current form sets.
+  UINTN            SpareStrLen;    // Spare length of ConfigRequest string buffer
   UINT8            ReferenceCount; // How many form set storage refrence this storage.
 } BROWSER_STORAGE;
 
@@ -1539,6 +1542,17 @@ SaveReminder (
 BROWSER_HOT_KEY *
 GetHotKeyFromRegisterList (
   IN EFI_INPUT_KEY *KeyData
+  );
+
+/**
+  Base on the current formset info, clean the ConfigRequest string in browser storage.
+
+  @param  FormSet                Pointer of the FormSet
+
+**/
+VOID
+CleanBrowserStorage (
+  IN OUT FORM_BROWSER_FORMSET  *FormSet
   );
 
 #endif

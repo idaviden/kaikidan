@@ -22,7 +22,9 @@
 .align 3
 
 GCC_ASM_IMPORT(CEntryPoint)
+GCC_ASM_IMPORT(ArmPlatformIsPrimaryCore)
 GCC_ASM_IMPORT(ArmReadMpidr)
+GCC_ASM_IMPORT(ArmPlatformPeiBootAction)
 GCC_ASM_IMPORT(ArmPlatformStackSet)
 GCC_ASM_EXPORT(_ModuleEntryPoint)
 
@@ -30,10 +32,13 @@ StartupAddr: .word    CEntryPoint
 
 
 ASM_PFX(_ModuleEntryPoint):
+  // Do early platform specific actions
+  bl    ASM_PFX(ArmPlatformPeiBootAction)
+
   // Get ID of this CPU in Multicore system
   bl    ASM_PFX(ArmReadMpidr)
-  LoadConstantToReg (FixedPcdGet32(PcdArmPrimaryCoreMask), r1)
-  and   r6, r0, r1
+  // Keep a copy of the MpId register value
+  mov   r6, r0
 
 _SetSVCMode:
   // Enter SVC mode, Disable FIQ and IRQ
@@ -118,8 +123,9 @@ _GetStackBase:
   bl	ASM_PFX(ArmPlatformStackSet)
 
   // Is it the Primary Core ?
-  LoadConstantToReg (FixedPcdGet32(PcdArmPrimaryCore), r4)
-  cmp   r6, r4
+  mov   r0, r6
+  bl    ASM_PFX(ArmPlatformIsPrimaryCore)
+  cmp   r0, #1
   bne   _PrepareArguments
 
 _ReserveGlobalVariable:

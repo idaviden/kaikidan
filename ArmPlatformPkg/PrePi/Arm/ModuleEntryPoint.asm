@@ -21,7 +21,9 @@
   INCLUDE AsmMacroIoLib.inc
   
   IMPORT  CEntryPoint
+  IMPORT  ArmPlatformIsPrimaryCore
   IMPORT  ArmReadMpidr
+  IMPORT  ArmPlatformPeiBootAction
   IMPORT  ArmPlatformStackSet
   
   EXPORT  _ModuleEntryPoint
@@ -32,10 +34,13 @@
 StartupAddr        DCD      CEntryPoint
 
 _ModuleEntryPoint
+  // Do early platform specific actions
+  bl    ArmPlatformPeiBootAction
+
   // Get ID of this CPU in Multicore system
   bl    ArmReadMpidr
-  LoadConstantToReg (FixedPcdGet32(PcdArmPrimaryCoreMask), r1)
-  and   r6, r0, r1
+  // Keep a copy of the MpId register value
+  mov   r6, r0
 
 _SetSVCMode
   // Enter SVC mode, Disable FIQ and IRQ
@@ -120,8 +125,9 @@ _GetStackBase
   bl	ArmPlatformStackSet
 
   // Is it the Primary Core ?
-  LoadConstantToReg (FixedPcdGet32(PcdArmPrimaryCore), r4)
-  cmp   r6, r4
+  mov   r0, r6
+  bl    ArmPlatformIsPrimaryCore
+  cmp   r0, #1
   bne   _PrepareArguments
 
 _ReserveGlobalVariable

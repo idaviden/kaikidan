@@ -246,6 +246,7 @@
   ## Guid for Firmware Performance Data Table (FPDT) implementation.
   #  Include/Guid/FirmwarePerformance.h
   gEfiFirmwarePerformanceGuid        = { 0xc095791a, 0x3001, 0x47b2, { 0x80, 0xc9, 0xea, 0xc7, 0x31, 0x9f, 0x2f, 0xa4 }}
+  gFirmwarePerformanceS3PointerGuid  = { 0xdc65adc,  0xa973, 0x4130, { 0x8d, 0xf0, 0x2a, 0xdb, 0xeb, 0x9e, 0x4a, 0x31 }}
 
   ## Include/Guid/ExitBootServiceFailed.h
   gEventExitBootServicesFailedGuid   = { 0x4f6c5507, 0x232f, 0x4787, { 0xb9, 0x5e, 0x72, 0xf8, 0x62, 0x49, 0xc, 0xb1 } }
@@ -324,6 +325,10 @@
   ## This protocol is intended for use as a means to store data in the EFI SMM environment.
   #  Include/Protocol/SmmVariableProtocol.h
   gEfiSmmVariableProtocolGuid = { 0xed32d533, 0x99e6, 0x4209, { 0x9c, 0xc0, 0x2d, 0x72, 0xcd, 0xd9, 0x98, 0xa7 }}
+
+  ## This protocol is intended for use as a means to mark a variable read-only after the event EFI_END_OF_DXE_EVENT_GUID is signaled.
+  #  Include/Protocol/VariableLock.h
+  gEdkiiVariableLockProtocolGuid = { 0xcd3d0a05, 0x9e24, 0x437c, { 0xa8, 0x91, 0x1e, 0xe0, 0x53, 0xdb, 0x76, 0x38 }}
 
   ## This protocol is similar with DXE FVB protocol and used in the UEFI SMM evvironment.
   #  Include/Protocol/SmmFirmwareVolumeBlock.h

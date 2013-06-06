@@ -540,6 +540,10 @@ SmmPerformanceHandlerEx (
   SMM_PERF_COMMUNICATE_EX   *SmmPerfCommData;
   GAUGE_DATA_ENTRY_EX       *GaugeEntryExArray;
   UINTN                     DataSize;
+  GAUGE_DATA_ENTRY_EX       *GaugeDataEx;
+  UINTN                     NumberOfEntries;
+  UINTN                     LogEntryKey;
+  UINTN                     TempCommBufferSize;
 
   GaugeEntryExArray = NULL;
 
@@ -550,12 +554,14 @@ SmmPerformanceHandlerEx (
     return EFI_SUCCESS;
   }
 
-  if(*CommBufferSize < sizeof (SMM_PERF_COMMUNICATE_EX)) {
+  TempCommBufferSize = *CommBufferSize;
+
+  if(TempCommBufferSize < sizeof (SMM_PERF_COMMUNICATE_EX)) {
     return EFI_SUCCESS;
   }
 
-  if (!IsAddressValid ((UINTN)CommBuffer, *CommBufferSize)) {
-    DEBUG ((EFI_D_ERROR, "SMM communcation data buffer in SMRAM or overflow!\n"));
+  if (!IsAddressValid ((UINTN)CommBuffer, TempCommBufferSize)) {
+    DEBUG ((EFI_D_ERROR, "SmmPerformanceHandlerEx: SMM communcation data buffer in SMRAM or overflow!\n"));
     return EFI_SUCCESS;
   }
   
@@ -568,8 +574,11 @@ SmmPerformanceHandlerEx (
        break;
 
     case SMM_PERF_FUNCTION_GET_GAUGE_DATA :
-       if ( SmmPerfCommData->GaugeDataEx == NULL || SmmPerfCommData->NumberOfEntries == 0 ||
-         (SmmPerfCommData->LogEntryKey + SmmPerfCommData->NumberOfEntries) > mGaugeData->NumberOfEntries) {
+      GaugeDataEx = SmmPerfCommData->GaugeDataEx;
+      NumberOfEntries = SmmPerfCommData->NumberOfEntries;
+      LogEntryKey = SmmPerfCommData->LogEntryKey;
+       if (GaugeDataEx == NULL || NumberOfEntries == 0 || LogEntryKey > mGaugeData->NumberOfEntries ||
+           NumberOfEntries > mGaugeData->NumberOfEntries || (LogEntryKey + NumberOfEntries) > mGaugeData->NumberOfEntries) {
          Status = EFI_INVALID_PARAMETER;
          break;
        }
@@ -577,17 +586,17 @@ SmmPerformanceHandlerEx (
        //
        // Sanity check
        //
-       DataSize = SmmPerfCommData->NumberOfEntries * sizeof(GAUGE_DATA_ENTRY_EX);
-       if (!IsAddressValid ((UINTN)SmmPerfCommData->GaugeDataEx, DataSize)) {
-         DEBUG ((EFI_D_ERROR, "SMM Performance Data buffer in SMRAM or overflow!\n"));
+       DataSize = NumberOfEntries * sizeof(GAUGE_DATA_ENTRY_EX);
+       if (!IsAddressValid ((UINTN)GaugeDataEx, DataSize)) {
+         DEBUG ((EFI_D_ERROR, "SmmPerformanceHandlerEx: SMM Performance Data buffer in SMRAM or overflow!\n"));
          Status = EFI_ACCESS_DENIED;
          break;
        }
 
        GaugeEntryExArray = (GAUGE_DATA_ENTRY_EX *) (mGaugeData + 1);
        CopyMem(
-         (UINT8 *) (SmmPerfCommData->GaugeDataEx),
-         (UINT8 *) &GaugeEntryExArray[SmmPerfCommData->LogEntryKey],
+         (UINT8 *) GaugeDataEx,
+         (UINT8 *) &GaugeEntryExArray[LogEntryKey],
          DataSize
          );
        Status = EFI_SUCCESS;
@@ -640,8 +649,11 @@ SmmPerformanceHandler (
   GAUGE_DATA_ENTRY_EX   *GaugeEntryExArray;
   UINTN                 DataSize;
   UINTN                 Index;
+  GAUGE_DATA_ENTRY      *GaugeData;
+  UINTN                 NumberOfEntries;
   UINTN                 LogEntryKey;
-  
+  UINTN                 TempCommBufferSize;
+
   GaugeEntryExArray = NULL;
 
   //
@@ -651,12 +663,14 @@ SmmPerformanceHandler (
     return EFI_SUCCESS;
   }
 
-  if(*CommBufferSize < sizeof (SMM_PERF_COMMUNICATE)) {
+  TempCommBufferSize = *CommBufferSize;
+
+  if(TempCommBufferSize < sizeof (SMM_PERF_COMMUNICATE)) {
     return EFI_SUCCESS;
   }
 
-  if (!IsAddressValid ((UINTN)CommBuffer, *CommBufferSize)) {
-    DEBUG ((EFI_D_ERROR, "SMM communcation data buffer in SMRAM or overflow!\n"));
+  if (!IsAddressValid ((UINTN)CommBuffer, TempCommBufferSize)) {
+    DEBUG ((EFI_D_ERROR, "SmmPerformanceHandler: SMM communcation data buffer in SMRAM or overflow!\n"));
     return EFI_SUCCESS;
   }
 
@@ -669,8 +683,11 @@ SmmPerformanceHandler (
        break;
 
     case SMM_PERF_FUNCTION_GET_GAUGE_DATA :
-       if ( SmmPerfCommData->GaugeData == NULL || SmmPerfCommData->NumberOfEntries == 0 ||
-         (SmmPerfCommData->LogEntryKey + SmmPerfCommData->NumberOfEntries) > mGaugeData->NumberOfEntries) {
+       GaugeData = SmmPerfCommData->GaugeData;
+       NumberOfEntries = SmmPerfCommData->NumberOfEntries;
+       LogEntryKey = SmmPerfCommData->LogEntryKey;
+       if (GaugeData == NULL || NumberOfEntries == 0 || LogEntryKey > mGaugeData->NumberOfEntries ||
+           NumberOfEntries > mGaugeData->NumberOfEntries || (LogEntryKey + NumberOfEntries) > mGaugeData->NumberOfEntries) {
          Status = EFI_INVALID_PARAMETER;
          break;
        }
@@ -678,19 +695,18 @@ SmmPerformanceHandler (
        //
        // Sanity check
        //
-       DataSize = SmmPerfCommData->NumberOfEntries * sizeof(GAUGE_DATA_ENTRY);
-       if (!IsAddressValid ((UINTN)SmmPerfCommData->GaugeData, DataSize)) {
-         DEBUG ((EFI_D_ERROR, "SMM Performance Data buffer in SMRAM or overflow!\n"));
+       DataSize = NumberOfEntries * sizeof(GAUGE_DATA_ENTRY);
+       if (!IsAddressValid ((UINTN)GaugeData, DataSize)) {
+         DEBUG ((EFI_D_ERROR, "SmmPerformanceHandler: SMM Performance Data buffer in SMRAM or overflow!\n"));
          Status = EFI_ACCESS_DENIED;
          break;
        }
 
        GaugeEntryExArray = (GAUGE_DATA_ENTRY_EX *) (mGaugeData + 1);
 
-       LogEntryKey = SmmPerfCommData->LogEntryKey;
-       for (Index = 0; Index < SmmPerfCommData->NumberOfEntries; Index++) {
+       for (Index = 0; Index < NumberOfEntries; Index++) {
          CopyMem(
-           (UINT8 *) &(SmmPerfCommData->GaugeData[Index]),
+           (UINT8 *) &GaugeData[Index],
            (UINT8 *) &GaugeEntryExArray[LogEntryKey++],
            sizeof (GAUGE_DATA_ENTRY)
            );

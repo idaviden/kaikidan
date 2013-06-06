@@ -221,7 +221,10 @@ ShellCommandRunDate (
         // get the current date
         //
         Status = gRT->GetTime(&TheTime, NULL);
-        ASSERT_EFI_ERROR(Status);
+        if (EFI_ERROR(Status)) {
+          ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_UEFI_FUNC_WARN), gShellLevel2HiiHandle, L"gRT->GetTime", Status);
+          return (SHELL_DEVICE_ERROR);
+        }
 
         //
         // ShellPrintEx the date in SFO or regular format
@@ -312,7 +315,10 @@ CheckAndSetTime (
   }
 
   Status = gRT->GetTime(&TheTime, NULL);
-  ASSERT_EFI_ERROR(Status);
+  if (EFI_ERROR(Status)) {
+    ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_UEFI_FUNC_WARN), gShellLevel2HiiHandle, L"gRT->GetTime", Status);
+    return (SHELL_DEVICE_ERROR);
+  }
 
   if (TimeString != NULL) {
     TimeStringCopy = NULL;
@@ -378,7 +384,6 @@ ShellCommandRunTime (
 {
   EFI_STATUS    Status;
   LIST_ENTRY    *Package;
-  CHAR16        *Message;
   EFI_TIME      TheTime;
   CHAR16        *ProblemParam;
   SHELL_STATUS  ShellStatus;
@@ -387,13 +392,11 @@ ShellCommandRunTime (
   CONST CHAR16  *TempLocation;
   UINTN         TzMinutes;
 
-  ShellStatus  = SHELL_SUCCESS;
-  ProblemParam = NULL;
-
   //
   // Initialize variables
   //
-  Message = NULL;
+  ShellStatus  = SHELL_SUCCESS;
+  ProblemParam = NULL;
 
   //
   // initialize the shell lib (we must be in non-auto-init...)
@@ -423,7 +426,11 @@ ShellCommandRunTime (
     // check for "-?"
     //
     Status = gRT->GetTime(&TheTime, NULL);
-    ASSERT_EFI_ERROR(Status);
+    if (EFI_ERROR(Status)) {
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_UEFI_FUNC_WARN), gShellLevel2HiiHandle, L"gRT->GetTime", Status);
+      return (SHELL_DEVICE_ERROR);
+    }
+
     if (ShellCommandLineGetFlag(Package, L"-?")) {
       ASSERT(FALSE);
     } else if (ShellCommandLineGetRawValue(Package, 2) != NULL) {
@@ -643,6 +650,7 @@ CheckAndSetTimeZone (
 
   Status = gRT->GetTime(&TheTime, NULL);
   if (EFI_ERROR(Status)) {
+    ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_UEFI_FUNC_WARN), gShellLevel2HiiHandle, L"gRT->GetTime", Status);
     return (SHELL_DEVICE_ERROR);
   }
 
@@ -788,7 +796,10 @@ ShellCommandRunTimeZone (
       // Get Current Time Zone Info
       //
       Status = gRT->GetTime(&TheTime, NULL);
-      ASSERT_EFI_ERROR(Status);
+      if (EFI_ERROR(Status)) {
+        ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_UEFI_FUNC_WARN), gShellLevel2HiiHandle, L"gRT->GetTime", Status);
+        return (SHELL_DEVICE_ERROR);
+      }
 
       if (TheTime.TimeZone != EFI_UNSPECIFIED_TIMEZONE) {
         Found = FALSE;
