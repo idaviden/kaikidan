@@ -277,13 +277,17 @@ DefineDefaultBootEntries (
         }
 
         BootArguments = (ARM_BDS_LOADER_ARGUMENTS*)AllocatePool (sizeof(ARM_BDS_LOADER_ARGUMENTS) + CmdLineSize + InitrdSize + FdtLocalSize);
-        BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
-        BootArguments->LinuxArguments.InitrdSize = InitrdSize;
-        BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
+        if ( BootArguments != NULL ) {
+          BootArguments->LinuxArguments.CmdLineSize = CmdLineSize;
+          BootArguments->LinuxArguments.InitrdSize = InitrdSize;
+          BootArguments->LinuxArguments.FdtLocalSize = FdtLocalSize;
 
-        CopyMem ((VOID*)(BootArguments + 1), (CHAR8*)PcdGetPtr(PcdDefaultBootArgument), CmdLineSize);
-        CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
-        CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
+          CopyMem ((VOID*)(BootArguments + 1), (CHAR8*)PcdGetPtr(PcdDefaultBootArgument), CmdLineSize);
+          CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
+          CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
+        }
+        FreePool (FdtLocalPath);
+        FreePool (InitrdPath);
       } else {
         BootArguments = NULL;
       }
@@ -296,6 +300,7 @@ DefineDefaultBootEntries (
         &BdsLoadOption
         );
       FreePool (BdsLoadOption);
+      FreePool (BootDevicePath);
     } else {
       Status = EFI_UNSUPPORTED;
     }
@@ -417,6 +422,13 @@ BdsEntry (
     UnicodeSPrint (gST->FirmwareVendor, Size, L"%a EFI %a %a", PcdGetPtr(PcdFirmwareVendor), __DATE__, __TIME__);
   }
 
+  //
+  // Fixup Table CRC after we updated Firmware Vendor
+  //
+  gST->Hdr.CRC32 = 0;
+  Status = gBS->CalculateCrc32 ((VOID*)gST, gST->Hdr.HeaderSize, &gST->Hdr.CRC32);
+  ASSERT_EFI_ERROR (Status);
+
   // If BootNext environment variable is defined then we just load it !
   BootNextSize = sizeof(UINT16);
   Status = GetGlobalEnvironmentVariable (L"BootNext", NULL, &BootNextSize, (VOID**)&BootNext);
@@ -458,6 +470,13 @@ BdsEntry (
 
   // Now we need to setup the EFI System Table with information about the console devices.
   InitializeConsole ();
+
+  //
+  // Update the CRC32 in the EFI System Table header
+  //
+  gST->Hdr.CRC32 = 0;
+  Status = gBS->CalculateCrc32 ((VOID*)gST, gST->Hdr.HeaderSize, &gST->Hdr.CRC32);
+  ASSERT_EFI_ERROR (Status);
 
   // Timer before initiating the default boot selection
   StartDefaultBootOnTimeout ();

@@ -38,6 +38,7 @@ UINTN           gBrowserContextCount = 0;
 LIST_ENTRY      gBrowserContextList = INITIALIZE_LIST_HEAD_VARIABLE (gBrowserContextList);
 LIST_ENTRY      gBrowserFormSetList = INITIALIZE_LIST_HEAD_VARIABLE (gBrowserFormSetList);
 LIST_ENTRY      gBrowserHotKeyList  = INITIALIZE_LIST_HEAD_VARIABLE (gBrowserHotKeyList);
+LIST_ENTRY      gBrowserStorageList  = INITIALIZE_LIST_HEAD_VARIABLE (gBrowserStorageList);
 
 BANNER_DATA           *gBannerData;
 EFI_HII_HANDLE        gFrontPageHandle;
@@ -366,6 +367,7 @@ SendForm (
       // If no data is changed, don't need to save current FormSet into the maintain list.
       //
       if (!IsNvUpdateRequired (gOldFormSet)) {
+        CleanBrowserStorage(gOldFormSet);
         RemoveEntryList (&gOldFormSet->Link);
         DestroyFormSet (gOldFormSet);
       }
@@ -475,9 +477,9 @@ BrowserCallback (
       Storage = FORMSET_STORAGE_FROM_LINK (Link);
       Link = GetNextNode (&FormSet->StorageListHead, Link);
 
-      if (CompareGuid (&Storage->Guid, (EFI_GUID *) VariableGuid)) {
-        if (Storage->Type == EFI_HII_VARSTORE_BUFFER ||
-            Storage->Type == EFI_HII_VARSTORE_EFI_VARIABLE_BUFFER) {
+      if (CompareGuid (&Storage->BrowserStorage->Guid, (EFI_GUID *) VariableGuid)) {
+        if (Storage->BrowserStorage->Type == EFI_HII_VARSTORE_BUFFER ||
+            Storage->BrowserStorage->Type == EFI_HII_VARSTORE_EFI_VARIABLE_BUFFER) {
           //
           // Buffer storage require both GUID and Name
           //
@@ -485,7 +487,7 @@ BrowserCallback (
             return EFI_NOT_FOUND;
           }
 
-          if (StrCmp (Storage->Name, (CHAR16 *) VariableName) != 0) {
+          if (StrCmp (Storage->BrowserStorage->Name, (CHAR16 *) VariableName) != 0) {
             continue;
           }
         }
@@ -515,7 +517,7 @@ BrowserCallback (
     //
     // Generate <ConfigResp>
     //
-    Status = StorageToConfigResp (Storage, &ConfigResp, FALSE);
+    Status = StorageToConfigResp (Storage->BrowserStorage, &ConfigResp, Storage->ConfigRequest);
     if (EFI_ERROR (Status)) {
       return Status;
     }
@@ -523,7 +525,7 @@ BrowserCallback (
     //
     // Skip <ConfigHdr> and '&' to point to <ConfigBody>
     //
-    StrPtr = ConfigResp + StrLen (Storage->ConfigHdr) + 1;
+    StrPtr = ConfigResp + StrLen (Storage->BrowserStorage->ConfigHdr) + 1;
 
     BufferSize = StrSize (StrPtr);
     if (*ResultsDataSize < BufferSize) {
@@ -542,18 +544,18 @@ BrowserCallback (
     // Prepare <ConfigResp>
     //
     TmpSize = StrLen (ResultsData);
-    BufferSize = (TmpSize + StrLen (Storage->ConfigHdr) + 2) * sizeof (CHAR16);
+    BufferSize = (TmpSize + StrLen (Storage->BrowserStorage->ConfigHdr) + 2) * sizeof (CHAR16);
     ConfigResp = AllocateZeroPool (BufferSize);
     ASSERT (ConfigResp != NULL);
 
-    StrCpy (ConfigResp, Storage->ConfigHdr);
+    StrCpy (ConfigResp, Storage->BrowserStorage->ConfigHdr);
     StrCat (ConfigResp, L"&");
     StrCat (ConfigResp, ResultsData);
 
     //
     // Update Browser uncommited data
     //
-    Status = ConfigRespToStorage (Storage, ConfigResp);
+    Status = ConfigRespToStorage (Storage->BrowserStorage, ConfigResp);
     if (EFI_ERROR (Status)) {
       return Status;
     }
@@ -826,7 +828,7 @@ NewStringCat (
 **/
 VOID
 SynchronizeStorage (
-  IN FORMSET_STORAGE         *Storage,
+  IN BROWSER_STORAGE         *Storage,
   IN BOOLEAN                 SyncOrRestore
   )
 {
@@ -879,7 +881,7 @@ SynchronizeStorage (
 **/
 EFI_STATUS
 GetValueByName (
-  IN FORMSET_STORAGE             *Storage,
+  IN BROWSER_STORAGE             *Storage,
   IN CHAR16                      *Name,
   IN OUT CHAR16                  **Value,
   IN GET_SET_QUESTION_VALUE_WITH GetValueFrom
@@ -928,7 +930,7 @@ GetValueByName (
 **/
 EFI_STATUS
 SetValueByName (
-  IN FORMSET_STORAGE         *Storage,
+  IN BROWSER_STORAGE         *Storage,
   IN CHAR16                  *Name,
   IN CHAR16                  *Value,
   IN GET_SET_QUESTION_VALUE_WITH SetValueTo
@@ -975,9 +977,9 @@ SetValueByName (
 /**
   Convert setting of Buffer Storage or NameValue Storage to <ConfigResp>.
 
-  @param  Buffer                 The Storage to be conveted.
+  @param  Storage                The Storage to be conveted.
   @param  ConfigResp             The returned <ConfigResp>.
-  @param  SingleForm             Whether update data for single form or formset level.
+  @param  ConfigRequest          The ConfigRequest string.
 
   @retval EFI_SUCCESS            Convert success.
   @retval EFI_INVALID_PARAMETER  Incorrect storage type.
@@ -985,28 +987,17 @@ SetValueByName (
 **/
 EFI_STATUS
 StorageToConfigResp (
-  IN VOID                    *Buffer,
+  IN BROWSER_STORAGE         *Storage,
   IN CHAR16                  **ConfigResp,
-  IN BOOLEAN                 SingleForm
+  IN CHAR16                  *ConfigRequest
   )
 {
-  EFI_STATUS  Status;
-  EFI_STRING  Progress;
+  EFI_STATUS              Status;
+  EFI_STRING              Progress;
   LIST_ENTRY              *Link;
   NAME_VALUE_NODE         *Node;
-  CHAR16                  *ConfigRequest;
-  FORMSET_STORAGE         *Storage;
-  FORM_BROWSER_CONFIG_REQUEST  *ConfigInfo;
 
   Status = EFI_SUCCESS;
-  if (SingleForm) {
-    ConfigInfo    = (FORM_BROWSER_CONFIG_REQUEST *) Buffer;
-    Storage       = ConfigInfo->Storage;
-    ConfigRequest = ConfigInfo->ConfigRequest;
-  } else {
-    Storage       = (FORMSET_STORAGE *) Buffer;
-    ConfigRequest = Storage->ConfigRequest;
-  }
 
   switch (Storage->Type) {
   case EFI_HII_VARSTORE_BUFFER:
@@ -1061,7 +1052,7 @@ StorageToConfigResp (
 **/
 EFI_STATUS
 ConfigRespToStorage (
-  IN FORMSET_STORAGE         *Storage,
+  IN BROWSER_STORAGE         *Storage,
   IN CHAR16                  *ConfigResp
   )
 {
@@ -1153,7 +1144,7 @@ GetQuestionValue (
   UINT8               *Dst;
   UINTN               StorageWidth;
   EFI_TIME            EfiTime;
-  FORMSET_STORAGE     *Storage;
+  BROWSER_STORAGE     *Storage;
   EFI_IFR_TYPE_VALUE  *QuestionValue;
   CHAR16              *ConfigRequest;
   CHAR16              *Progress;
@@ -1578,7 +1569,7 @@ SetQuestionValue (
   EFI_TIME            EfiTime;
   UINTN               BufferLen;
   UINTN               StorageWidth;
-  FORMSET_STORAGE     *Storage;
+  BROWSER_STORAGE     *Storage;
   EFI_IFR_TYPE_VALUE  *QuestionValue;
   CHAR16              *ConfigResp;
   CHAR16              *Progress;
@@ -2225,6 +2216,7 @@ ValidateFormSet (
   }
 
   if (!Find) {
+    CleanBrowserStorage(FormSet);
     RemoveEntryList (&FormSet->Link);
     DestroyFormSet (FormSet);
   }
@@ -2304,7 +2296,7 @@ DiscardForm (
       Storage = FORMSET_STORAGE_FROM_LINK (Link);
       Link = GetNextNode (&FormSet->StorageListHead, Link);
 
-      if (Storage->Type == EFI_HII_VARSTORE_EFI_VARIABLE) {
+      if (Storage->BrowserStorage->Type == EFI_HII_VARSTORE_EFI_VARIABLE) {
         continue;
       }
 
@@ -2315,7 +2307,7 @@ DiscardForm (
         continue;
       }
 
-      SynchronizeStorage(Storage, FALSE);
+      SynchronizeStorage(Storage->BrowserStorage, FALSE);
     }
 
     Link = GetFirstNode (&FormSet->FormListHead);
@@ -2350,6 +2342,7 @@ DiscardForm (
         //
         // Remove maintain backup list after discard except for the current using FormSet.
         //
+        CleanBrowserStorage(LocalFormSet);
         RemoveEntryList (&LocalFormSet->Link);
         DestroyFormSet (LocalFormSet);
       }
@@ -2381,7 +2374,8 @@ SubmitForm (
   LIST_ENTRY              *Link;
   EFI_STRING              ConfigResp;
   EFI_STRING              Progress;
-  FORMSET_STORAGE         *Storage;
+  BROWSER_STORAGE         *Storage;
+  FORMSET_STORAGE         *FormSetStorage;
   UINTN                   BufferSize;
   UINT8                   *TmpBuf;  
   FORM_BROWSER_FORMSET    *LocalFormSet;
@@ -2429,7 +2423,7 @@ SubmitForm (
       //
       // 1. Prepare <ConfigResp>
       //
-      Status = StorageToConfigResp (ConfigInfo, &ConfigResp, TRUE);
+      Status = StorageToConfigResp (ConfigInfo->Storage, &ConfigResp, ConfigInfo->ConfigRequest);
       if (EFI_ERROR (Status)) {
         return Status;
       }
@@ -2518,7 +2512,8 @@ SubmitForm (
     //
     Link = GetFirstNode (&FormSet->StorageListHead);
     while (!IsNull (&FormSet->StorageListHead, Link)) {
-      Storage = FORMSET_STORAGE_FROM_LINK (Link);
+      FormSetStorage = (FORMSET_STORAGE_FROM_LINK (Link));
+      Storage        = FormSetStorage->BrowserStorage;
       Link = GetNextNode (&FormSet->StorageListHead, Link);
 
       if (Storage->Type == EFI_HII_VARSTORE_EFI_VARIABLE) {
@@ -2528,14 +2523,14 @@ SubmitForm (
       //
       // Skip if there is no RequestElement
       //
-      if (Storage->ElementCount == 0) {
+      if (FormSetStorage->ElementCount == 0) {
         continue;
       }
 
       //
       // 1. Prepare <ConfigResp>
       //
-      Status = StorageToConfigResp (Storage, &ConfigResp, FALSE);
+      Status = StorageToConfigResp (Storage, &ConfigResp, FormSetStorage->ConfigRequest);
       if (EFI_ERROR (Status)) {
         return Status;
       }
@@ -2634,6 +2629,7 @@ SubmitForm (
         //
         // Remove maintain backup list after save except for the current using FormSet.
         //
+        CleanBrowserStorage(LocalFormSet);
         RemoveEntryList (&LocalFormSet->Link);
         DestroyFormSet (LocalFormSet);
       }
@@ -2663,7 +2659,7 @@ GetDefaultValueFromAltCfg (
   BOOLEAN             IsBufferStorage;
   BOOLEAN             IsString;  
   UINTN               Length;
-  FORMSET_STORAGE     *Storage;
+  BROWSER_STORAGE     *Storage;
   CHAR16              *ConfigRequest;
   CHAR16              *Progress;
   CHAR16              *Result;
@@ -3151,7 +3147,7 @@ ExtractDefault (
   IN UINT16                           DefaultId,
   IN BROWSER_SETTING_SCOPE            SettingScope,
   IN BROWSER_GET_DEFAULT_VALUE        GetDefaultValueScope,
-  IN FORMSET_STORAGE                  *Storage OPTIONAL,
+  IN BROWSER_STORAGE                  *Storage OPTIONAL,
   IN BOOLEAN                          RetrieveValueFirst
   )
 {
@@ -3445,6 +3441,319 @@ LoadFormSetConfig (
 }
 
 /**
+  Remove the Request element from the Config Request.
+
+  @param  Storage                Pointer to the browser storage.
+  @param  RequestElement         The pointer to the Request element.
+
+**/
+VOID
+RemoveElement (
+  IN OUT BROWSER_STORAGE      *Storage,
+  IN     CHAR16               *RequestElement
+  )
+{
+  CHAR16   *NewStr;
+  CHAR16   *DestStr;
+
+  ASSERT (Storage->ConfigRequest != NULL && RequestElement != NULL);
+
+  NewStr = StrStr (Storage->ConfigRequest, RequestElement);
+
+  if (NewStr == NULL) {
+    return;
+  }
+
+  //
+  // Remove this element from this ConfigRequest.
+  //
+  DestStr = NewStr;
+  NewStr += StrLen (RequestElement);
+  CopyMem (DestStr, NewStr, StrSize (NewStr));
+  
+  Storage->SpareStrLen += StrLen (RequestElement);  
+}
+
+/**
+  Adjust config request in storage, remove the request elements existed in the input ConfigRequest.
+
+  @param  Storage                Pointer to the browser storage.
+  @param  ConfigRequest          The pointer to the Request element.
+
+**/
+VOID
+RemoveConfigRequest (
+  BROWSER_STORAGE   *Storage,
+  CHAR16            *ConfigRequest
+  )
+{
+  CHAR16       *RequestElement;
+  CHAR16       *NextRequestElement;
+  CHAR16       *SearchKey;
+
+  if (Storage->Type == EFI_HII_VARSTORE_NAME_VALUE) {
+    //
+    // "&Name1&Name2" section for EFI_HII_VARSTORE_NAME_VALUE storage
+    //
+    SearchKey = L"&";
+  } else {
+    //
+    // "&OFFSET=####&WIDTH=####" section for EFI_HII_VARSTORE_BUFFER storage
+    //
+    SearchKey = L"&OFFSET";
+  }
+
+  //
+  // Find SearchKey storage
+  //
+  if (Storage->Type == EFI_HII_VARSTORE_NAME_VALUE) {
+    RequestElement = StrStr (ConfigRequest, L"PATH");
+    ASSERT (RequestElement != NULL);
+    RequestElement = StrStr (RequestElement, SearchKey);    
+  } else {
+    RequestElement = StrStr (ConfigRequest, SearchKey);
+  }
+
+  while (RequestElement != NULL) {
+    //
+    // +1 to avoid find header itself.
+    //
+    NextRequestElement = StrStr (RequestElement + 1, SearchKey);
+
+    //
+    // The last Request element in configRequest string.
+    //
+    if (NextRequestElement != NULL) {
+      //
+      // Replace "&" with '\0'.
+      //
+      *NextRequestElement = L'\0';
+    }
+
+    RemoveElement (Storage, RequestElement);
+
+    if (NextRequestElement != NULL) {
+      //
+      // Restore '&' with '\0' for later used.
+      //
+      *NextRequestElement = L'&';
+    }
+
+    RequestElement = NextRequestElement;
+  }
+
+  //
+  // If no request element remain, just remove the ConfigRequest string.
+  //
+  if (StrCmp (Storage->ConfigRequest, Storage->ConfigHdr) == 0) {
+    FreePool (Storage->ConfigRequest);
+    Storage->ConfigRequest = NULL;
+    Storage->SpareStrLen   = 0;
+  }
+}
+
+/**
+  Base on the current formset info, clean the ConfigRequest string in browser storage.
+
+  @param  FormSet                Pointer of the FormSet
+
+**/
+VOID
+CleanBrowserStorage (
+  IN OUT FORM_BROWSER_FORMSET  *FormSet
+  )
+{
+  LIST_ENTRY            *Link;
+  FORMSET_STORAGE       *Storage;
+
+  Link = GetFirstNode (&FormSet->StorageListHead);
+  while (!IsNull (&FormSet->StorageListHead, Link)) {
+    Storage = FORMSET_STORAGE_FROM_LINK (Link);
+    Link = GetNextNode (&FormSet->StorageListHead, Link);
+
+    if ((Storage->BrowserStorage->Type != EFI_HII_VARSTORE_BUFFER) && 
+        (Storage->BrowserStorage->Type != EFI_HII_VARSTORE_NAME_VALUE)) {
+      continue;
+    }
+
+    if (Storage->ConfigRequest == NULL || Storage->BrowserStorage->ConfigRequest == NULL) {
+      continue;
+    }
+
+    RemoveConfigRequest (Storage->BrowserStorage, Storage->ConfigRequest);
+  }
+}
+
+/**
+  Check whether current element in the ConfigReqeust string.
+
+  @param  BrowserStorage                Storage which includes ConfigReqeust.
+  @param  RequestElement                New element need to check.
+
+  @retval TRUE        The Element is in the ConfigReqeust string.
+  @retval FALSE       The Element not in the configReqeust String.
+
+**/
+BOOLEAN 
+ElementValidation (
+  BROWSER_STORAGE   *BrowserStorage,
+  CHAR16            *RequestElement
+  )
+{
+  return StrStr (BrowserStorage->ConfigRequest, RequestElement) != NULL ? TRUE : FALSE;
+}
+
+/**
+  Append the Request element to the Config Request.
+
+  @param  ConfigRequest          Current ConfigRequest info.
+  @param  SpareStrLen            Current remain free buffer for config reqeust.
+  @param  RequestElement         New Request element.
+
+**/
+VOID
+AppendConfigRequest (
+  IN OUT CHAR16               **ConfigRequest,
+  IN OUT UINTN                *SpareStrLen,
+  IN     CHAR16               *RequestElement
+  )
+{
+  CHAR16   *NewStr;
+  UINTN    StringSize;
+  UINTN    StrLength;
+
+  StrLength = StrLen (RequestElement);
+
+  //
+  // Append <RequestElement> to <ConfigRequest>
+  //
+  if (StrLength > *SpareStrLen) {
+    //
+    // Old String buffer is not sufficient for RequestElement, allocate a new one
+    //
+    StringSize = (*ConfigRequest != NULL) ? StrSize (*ConfigRequest) : sizeof (CHAR16);
+    NewStr = AllocateZeroPool (StringSize + CONFIG_REQUEST_STRING_INCREMENTAL * sizeof (CHAR16));
+    ASSERT (NewStr != NULL);
+
+    if (*ConfigRequest != NULL) {
+      CopyMem (NewStr, *ConfigRequest, StringSize);
+      FreePool (*ConfigRequest);
+    }
+    *ConfigRequest = NewStr;
+    *SpareStrLen   = CONFIG_REQUEST_STRING_INCREMENTAL;
+  }
+
+  StrCat (*ConfigRequest, RequestElement);
+  *SpareStrLen -= StrLength;
+}
+
+/**
+  Adjust the config request info, remove the request elements which already in AllConfigRequest string.
+
+  @param  Storage                Form set Storage.
+  @param  ConfigRequest          Return the ConfigRequest info.
+
+  @retval TRUE                   Has element not covered by current used elements, need to continue to call ExtractConfig
+  @retval FALSE                  All elements covered by current used elements.
+
+**/
+BOOLEAN 
+ConfigRequestAdjust (
+  IN  FORMSET_STORAGE         *Storage,
+  OUT CHAR16                  **ConfigRequest
+  )
+{
+  CHAR16       *RequestElement;
+  CHAR16       *NextRequestElement;
+  CHAR16       *RetBuf;
+  UINTN        SpareBufLen;
+  CHAR16       *SearchKey;
+  BOOLEAN      RetVal;
+
+  SpareBufLen    = 0;
+  RetBuf         = NULL;
+  RetVal         = FALSE;
+
+  if (Storage->BrowserStorage->ConfigRequest == NULL) {
+    Storage->BrowserStorage->ConfigRequest = AllocateCopyPool (StrSize (Storage->ConfigRequest), Storage->ConfigRequest);
+    *ConfigRequest = AllocateCopyPool (StrSize (Storage->ConfigRequest), Storage->ConfigRequest);
+    return TRUE;
+  }
+
+  if (Storage->BrowserStorage->Type == EFI_HII_VARSTORE_NAME_VALUE) {
+    //
+    // "&Name1&Name2" section for EFI_HII_VARSTORE_NAME_VALUE storage
+    //
+    SearchKey = L"&";
+  } else {
+    //
+    // "&OFFSET=####&WIDTH=####" section for EFI_HII_VARSTORE_BUFFER storage
+    //
+    SearchKey = L"&OFFSET";
+  }
+
+  //
+  // Prepare the config header.
+  // 
+  RetBuf = AllocateCopyPool(StrSize (Storage->BrowserStorage->ConfigHdr), Storage->BrowserStorage->ConfigHdr);
+  ASSERT (RetBuf != NULL);
+
+  //
+  // Find SearchKey storage
+  //
+  if (Storage->BrowserStorage->Type == EFI_HII_VARSTORE_NAME_VALUE) {
+    RequestElement = StrStr (Storage->ConfigRequest, L"PATH");
+    ASSERT (RequestElement != NULL);
+    RequestElement = StrStr (RequestElement, SearchKey);    
+  } else {
+    RequestElement = StrStr (Storage->ConfigRequest, SearchKey);
+  }
+
+  while (RequestElement != NULL) {
+    //
+    // +1 to avoid find header itself.
+    //
+    NextRequestElement = StrStr (RequestElement + 1, SearchKey);
+
+    //
+    // The last Request element in configRequest string.
+    //
+    if (NextRequestElement != NULL) {
+      //
+      // Replace "&" with '\0'.
+      //
+      *NextRequestElement = L'\0';
+    }
+ 
+    if (!ElementValidation (Storage->BrowserStorage, RequestElement)) {
+      //
+      // Add this element to the Storage->BrowserStorage->AllRequestElement.
+      //
+      AppendConfigRequest(&Storage->BrowserStorage->ConfigRequest, &Storage->BrowserStorage->SpareStrLen, RequestElement);
+      AppendConfigRequest (&RetBuf, &SpareBufLen, RequestElement);
+      RetVal = TRUE;
+    }
+
+    if (NextRequestElement != NULL) {
+      //
+      // Restore '&' with '\0' for later used.
+      //
+      *NextRequestElement = L'&';
+    }
+
+    RequestElement = NextRequestElement;
+  }
+
+  if (RetVal) {
+    *ConfigRequest = RetBuf;
+  } else {
+    FreePool (RetBuf);
+  }
+
+  return RetVal;
+}
+
+/**
   Fill storage's edit copy with settings requested from Configuration Driver.
 
   @param  FormSet                FormSet data structure.
@@ -3463,19 +3772,26 @@ LoadStorage (
   EFI_STRING  Progress;
   EFI_STRING  Result;
   CHAR16      *StrPtr;
+  CHAR16      *ConfigRequest;
 
-  if (Storage->Type == EFI_HII_VARSTORE_EFI_VARIABLE) {
+  if (Storage->BrowserStorage->Type == EFI_HII_VARSTORE_EFI_VARIABLE) {
     return EFI_SUCCESS;
   }
 
-  if (Storage->Type == EFI_HII_VARSTORE_EFI_VARIABLE_BUFFER) {
-    Status = gRT->GetVariable (
-                     Storage->Name,
-                     &Storage->Guid,
-                     NULL,
-                     (UINTN*)&Storage->Size,
-                     Storage->EditBuffer
-                     );
+  if (Storage->BrowserStorage->Type == EFI_HII_VARSTORE_EFI_VARIABLE_BUFFER) {
+    Status = EFI_SUCCESS;
+    //
+    // EFI varstore data all get from variable, so no need to get again.
+    //
+    if (Storage->BrowserStorage->ReferenceCount == 1) {
+      Status = gRT->GetVariable (
+                       Storage->BrowserStorage->Name,
+                       &Storage->BrowserStorage->Guid,
+                       NULL,
+                       (UINTN*)&Storage->BrowserStorage->Size,
+                       Storage->BrowserStorage->EditBuffer
+                       );
+    }
     return Status;
   }
 
@@ -3491,14 +3807,24 @@ LoadStorage (
   }
 
   //
+  // Adjust the ConfigRequest string, only the field not saved in BrowserStorage->AllConfig
+  // will used to call ExtractConfig.
+  //
+  if (!ConfigRequestAdjust(Storage, &ConfigRequest)) {
+    return EFI_SUCCESS;
+  }
+
+  //
   // Request current settings from Configuration Driver
   //
   Status = FormSet->ConfigAccess->ExtractConfig (
                                     FormSet->ConfigAccess,
-                                    Storage->ConfigRequest,
+                                    ConfigRequest,
                                     &Progress,
                                     &Result
                                     );
+  FreePool (ConfigRequest);
+
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -3511,134 +3837,9 @@ LoadStorage (
     *StrPtr = L'\0';
   }
 
-  Status = ConfigRespToStorage (Storage, Result);
+  Status = ConfigRespToStorage (Storage->BrowserStorage, Result);
   FreePool (Result);
   return Status;
-}
-
-
-/**
-  Copy uncommitted data from source Storage to destination Storage.
-
-  @param  Dst                    Target Storage for uncommitted data.
-  @param  Src                    Source Storage for uncommitted data.
-
-  @retval EFI_SUCCESS            The function completed successfully.
-  @retval EFI_INVALID_PARAMETER  Source and destination Storage is not the same type.
-
-**/
-EFI_STATUS
-CopyStorage (
-  IN OUT FORMSET_STORAGE     *Dst,
-  IN FORMSET_STORAGE         *Src
-  )
-{
-  LIST_ENTRY          *Link;
-  NAME_VALUE_NODE     *Node;
-
-  if ((Dst->Type != Src->Type) || (Dst->Size != Src->Size)) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  switch (Src->Type) {
-  case EFI_HII_VARSTORE_BUFFER:
-  case EFI_HII_VARSTORE_EFI_VARIABLE_BUFFER:
-    CopyMem (Dst->EditBuffer, Src->EditBuffer, Src->Size);
-    CopyMem (Dst->Buffer, Src->Buffer, Src->Size);
-    break;
-
-  case EFI_HII_VARSTORE_NAME_VALUE:
-    Link = GetFirstNode (&Src->NameValueListHead);
-    while (!IsNull (&Src->NameValueListHead, Link)) {
-      Node = NAME_VALUE_NODE_FROM_LINK (Link);
-
-      SetValueByName (Dst, Node->Name, Node->EditValue, GetSetValueWithEditBuffer);
-      SetValueByName (Dst, Node->Name, Node->Value, GetSetValueWithBuffer);
-
-      Link = GetNextNode (&Src->NameValueListHead, Link);
-    }
-    break;
-
-  case EFI_HII_VARSTORE_EFI_VARIABLE:
-  default:
-    break;
-  }
-
-  return EFI_SUCCESS;
-}
-
-/**
-  Get old question value from the saved formset.
-
-  @param  Statement              The question which need to get old question value.
-  @param  OldFormSet             FormSet data structure saved in the list.
-
-**/
-VOID 
-GetOldQuestionValue (
-  IN OUT FORM_BROWSER_STATEMENT  *Statement,
-  IN     FORM_BROWSER_FORMSET    *OldFormSet
-  )
-{
-  LIST_ENTRY              *FormLink;
-  LIST_ENTRY              *Link;
-  FORM_BROWSER_STATEMENT  *Question;
-  FORM_BROWSER_FORM       *Form;
-
-  FormLink = GetFirstNode (&OldFormSet->FormListHead);
-  while (!IsNull (&OldFormSet->FormListHead, FormLink)) {
-    Form = FORM_BROWSER_FORM_FROM_LINK (FormLink);
-    FormLink = GetNextNode (&OldFormSet->FormListHead, FormLink);
-
-    Link = GetFirstNode (&Form->StatementListHead);
-    while (!IsNull (&Form->StatementListHead, Link)) {
-      Question = FORM_BROWSER_STATEMENT_FROM_LINK (Link);
-      Link = GetNextNode (&Form->StatementListHead, Link);
-
-      if (Question->QuestionId != Statement->QuestionId) {
-        continue;
-      }
-
-      CopyMem (&Statement->HiiValue, &Question->HiiValue, sizeof (EFI_HII_VALUE));
-      return;
-    }
-  }
-}
-
-/**
-  Get old question value from the saved formset, all these questions not have
-  storage.
-
-  @param  FormSet                FormSet data structure which is used now.
-  @param  OldFormSet             FormSet data structure saved in the list.
-
-**/
-VOID
-CopyOldValueForNoStorageQst (
-  IN OUT FORM_BROWSER_FORMSET             *FormSet,
-  IN     FORM_BROWSER_FORMSET             *OldFormSet
-  )
-{
-  LIST_ENTRY              *FormLink;
-  LIST_ENTRY              *Link;
-  FORM_BROWSER_STATEMENT  *Question;
-  FORM_BROWSER_FORM       *Form;
-
-  FormLink = GetFirstNode (&FormSet->FormListHead);
-  while (!IsNull (&FormSet->FormListHead, FormLink)) {
-    Form = FORM_BROWSER_FORM_FROM_LINK (FormLink);
-    FormLink = GetNextNode (&FormSet->FormListHead, FormLink);
-
-    Link = GetFirstNode (&Form->StatementListHead);
-    while (!IsNull (&Form->StatementListHead, Link)) {
-      Question = FORM_BROWSER_STATEMENT_FROM_LINK (Link);
-      Link = GetNextNode (&Form->StatementListHead, Link);
-
-      if (Question->Storage == NULL) {
-        GetOldQuestionValue (Question, OldFormSet);
-      }
-    }
-  }
 }
 
 /**
@@ -3693,17 +3894,18 @@ InitializeCurrentSetting (
       }
     }
 
+    //
+    // Storage is not found in backup formset and current global storage not has other driver used,
+    // request it from ConfigDriver
+    //
     if (OldStorage == NULL) {
-      //
-      // Storage is not found in backup formset, request it from ConfigDriver
-      //
       Status = LoadStorage (FormSet, Storage);
 
       if (EFI_ERROR (Status)) {
         //
         // If get last time changed value failed, extract default from IFR binary
         //
-        ExtractDefault (FormSet, NULL, EFI_HII_DEFAULT_CLASS_STANDARD, FormSetLevel, GetDefaultForStorage, Storage, TRUE);
+        ExtractDefault (FormSet, NULL, EFI_HII_DEFAULT_CLASS_STANDARD, FormSetLevel, GetDefaultForStorage, Storage->BrowserStorage, TRUE);
         //
         // ExtractDefault will set the NV flag to TRUE, so need this function to clean the flag
         // in current situation.
@@ -3715,12 +3917,7 @@ InitializeCurrentSetting (
       // Now Edit Buffer is filled with default values(lower priority) or current
       // settings(higher priority), sychronize it to shadow Buffer
       //
-      SynchronizeStorage (Storage, TRUE);
-    } else {
-      //
-      // Storage found in backup formset, use it
-      //
-      Status = CopyStorage (Storage, OldStorage);
+      SynchronizeStorage (Storage->BrowserStorage, TRUE);
     }
 
     Link = GetNextNode (&FormSet->StorageListHead, Link);

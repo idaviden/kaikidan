@@ -2,7 +2,7 @@
   Serial I/O Port library functions with no library constructor/destructor
 
   Copyright (c) 2008 - 2010, Apple Inc. All rights reserved.<BR>
-  Copyright (c) 2011 - 2012, ARM Ltd. All rights reserved.<BR>
+  Copyright (c) 2011 - 2013, ARM Ltd. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -31,40 +31,37 @@
 RETURN_STATUS
 EFIAPI
 PL011UartInitializePort (
-  IN UINTN               UartBase,
-  IN UINT64              BaudRate,
-  IN UINT32              ReceiveFifoDepth,
-  IN EFI_PARITY_TYPE     Parity,
-  IN UINT8               DataBits,
-  IN EFI_STOP_BITS_TYPE  StopBits
+  IN OUT UINTN               UartBase,
+  IN OUT UINT64              *BaudRate,
+  IN OUT UINT32              *ReceiveFifoDepth,
+  IN OUT EFI_PARITY_TYPE     *Parity,
+  IN OUT UINT8               *DataBits,
+  IN OUT EFI_STOP_BITS_TYPE  *StopBits
   )
 {
   UINT32      LineControl;
   UINT32      Divisor;
-
-  // The BaudRate must be passed
-  if (BaudRate == 0) {
-    return RETURN_INVALID_PARAMETER;
-  }
 
   LineControl = 0;
 
   // The PL011 supports a buffer of either 1 or 32 chars. Therefore we can accept
   // 1 char buffer as the minimum fifo size. Because everything can be rounded down,
   // there is no maximum fifo size.
-  if (ReceiveFifoDepth == 0) {
+  if ((*ReceiveFifoDepth == 0) || (*ReceiveFifoDepth >= 32)) {
     LineControl |= PL011_UARTLCR_H_FEN;
-  } else if (ReceiveFifoDepth < 32) {
+    *ReceiveFifoDepth = 32;
+  } else {
+    ASSERT (*ReceiveFifoDepth < 32);
     // Nothing else to do. 1 byte fifo is default.
-  } else if (ReceiveFifoDepth >= 32) {
-    LineControl |= PL011_UARTLCR_H_FEN;
+    *ReceiveFifoDepth = 1;
   }
 
   //
   // Parity
   //
-  switch (Parity) {
+  switch (*Parity) {
   case DefaultParity:
+    *Parity = NoParity;
   case NoParity:
     // Nothing to do. Parity is disabled by default.
     break;
@@ -87,8 +84,9 @@ PL011UartInitializePort (
   //
   // Data Bits
   //
-  switch (DataBits) {
+  switch (*DataBits) {
   case 0:
+    *DataBits = 8;
   case 8:
     LineControl |= PL011_UARTLCR_H_WLEN_8;
     break;
@@ -108,8 +106,9 @@ PL011UartInitializePort (
   //
   // Stop Bits
   //
-  switch (StopBits) {
+  switch (*StopBits) {
   case DefaultStopBits:
+    *StopBits = OneStopBit;
   case OneStopBit:
     // Nothing to do. One stop bit is enabled by default.
     break;
@@ -130,11 +129,21 @@ PL011UartInitializePort (
   //
   // Baud Rate
   //
-  if (PcdGet32(PL011UartInteger) != 0) {
-    MmioWrite32 (UartBase + UARTIBRD, PcdGet32(PL011UartInteger));
-    MmioWrite32 (UartBase + UARTFBRD, PcdGet32(PL011UartFractional));
-  } else {
-    Divisor = (PcdGet32 (PL011UartClkInHz) * 4) / BaudRate;
+
+  // If BaudRate is zero then use default baud rate
+  if (BaudRate == 0) {
+    if (PcdGet32 (PL011UartInteger) != 0) {
+      MmioWrite32 (UartBase + UARTIBRD, PcdGet32 (PL011UartInteger));
+      MmioWrite32 (UartBase + UARTFBRD, PcdGet32 (PL011UartFractional));
+    } else {
+      *BaudRate = PcdGet32 (PcdSerialBaudRate);
+      ASSERT (*BaudRate != 0);
+    }
+  }
+
+  // If BaudRate != 0 then we must calculate the divisor from the value
+  if (*BaudRate != 0) {
+    Divisor = (PcdGet32 (PL011UartClkInHz) * 4) / *BaudRate;
     MmioWrite32 (UartBase + UARTIBRD, Divisor >> 6);
     MmioWrite32 (UartBase + UARTFBRD, Divisor & 0x3F);
   }

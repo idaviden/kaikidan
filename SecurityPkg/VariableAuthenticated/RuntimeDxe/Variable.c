@@ -35,12 +35,28 @@ VARIABLE_MODULE_GLOBAL  *mVariableModuleGlobal;
 ///
 /// Define a memory cache that improves the search performance for a variable.
 ///
-VARIABLE_STORE_HEADER  *mNvVariableCache = NULL;
+VARIABLE_STORE_HEADER  *mNvVariableCache      = NULL;
 
 ///
 /// The memory entry used for variable statistics data.
 ///
-VARIABLE_INFO_ENTRY    *gVariableInfo    = NULL;
+VARIABLE_INFO_ENTRY    *gVariableInfo         = NULL;
+
+///
+/// The list to store the variables which cannot be set after the EFI_END_OF_DXE_EVENT_GROUP_GUID
+/// or EVT_GROUP_READY_TO_BOOT event.
+///
+LIST_ENTRY             mLockedVariableList    = INITIALIZE_LIST_HEAD_VARIABLE (mLockedVariableList);
+
+///
+/// The flag to indicate whether the platform has left the DXE phase of execution.
+///
+BOOLEAN                mEndOfDxe              = FALSE;
+
+///
+/// The flag to indicate whether the variable storage locking is enabled.
+///
+BOOLEAN                mEnableLocking         = TRUE;
 
 
 /**
@@ -1649,7 +1665,7 @@ UpdateVariable (
   EFI_STATUS                          Status;
   VARIABLE_HEADER                     *NextVariable;
   UINTN                               ScratchSize;
-  UINTN                               ScratchDataSize;
+  UINTN                               MaxDataSize;
   UINTN                               NonVolatileVarableStoreSize;
   UINTN                               VarNameOffset;
   UINTN                               VarDataOffset;
@@ -1664,7 +1680,6 @@ UpdateVariable (
   UINTN                               CacheOffset;
   UINTN                               BufSize;
   UINTN                               DataOffset;
-  UINTN                               RevBufSize;
 
   if (mVariableModuleGlobal->FvbInstance == NULL) {
     //
@@ -1713,7 +1728,7 @@ UpdateVariable (
   //
   NextVariable = GetEndPointer ((VARIABLE_STORE_HEADER *) ((UINTN) mVariableModuleGlobal->VariableGlobal.VolatileVariableBase));
   ScratchSize = MAX (PcdGet32 (PcdMaxVariableSize), PcdGet32 (PcdMaxHardwareErrorVariableSize));
-  ScratchDataSize = ScratchSize - sizeof (VARIABLE_HEADER) - StrSize (VariableName) - GET_PAD_SIZE (StrSize (VariableName));
+
 
   if (Variable->CurrPtr != NULL) {
     //
@@ -1827,14 +1842,36 @@ UpdateVariable (
         DataOffset = sizeof (VARIABLE_HEADER) + Variable->CurrPtr->NameSize + GET_PAD_SIZE (Variable->CurrPtr->NameSize);
         CopyMem (mStorageArea, (UINT8*)((UINTN) Variable->CurrPtr + DataOffset), Variable->CurrPtr->DataSize);
 
+        //
+        // Set Max Common Variable Data Size as default MaxDataSize 
+        //
+        MaxDataSize = PcdGet32 (PcdMaxVariableSize) - sizeof (VARIABLE_HEADER) - StrSize (VariableName) - GET_PAD_SIZE (StrSize (VariableName));
+
+
         if ((CompareGuid (VendorGuid, &gEfiImageSecurityDatabaseGuid) &&
             ((StrCmp (VariableName, EFI_IMAGE_SECURITY_DATABASE) == 0) || (StrCmp (VariableName, EFI_IMAGE_SECURITY_DATABASE1) == 0))) ||
             (CompareGuid (VendorGuid, &gEfiGlobalVariableGuid) && (StrCmp (VariableName, EFI_KEY_EXCHANGE_KEY_NAME) == 0))) {
+
           //
           // For variables with formatted as EFI_SIGNATURE_LIST, the driver shall not perform an append of
           // EFI_SIGNATURE_DATA values that are already part of the existing variable value.
           //
-          BufSize = AppendSignatureList (mStorageArea, Variable->CurrPtr->DataSize, Data, DataSize);
+          Status = AppendSignatureList (
+                     mStorageArea, 
+                     Variable->CurrPtr->DataSize, 
+                     MaxDataSize - Variable->CurrPtr->DataSize,
+                     Data, 
+                     DataSize, 
+                     &BufSize
+                     );
+          if (Status == EFI_BUFFER_TOO_SMALL) {
+            //
+            // Signture List is too long, Failed to Append
+            //
+            Status = EFI_INVALID_PARAMETER;
+            goto Done;
+          }
+
           if (BufSize == Variable->CurrPtr->DataSize) {
             if ((TimeStamp == NULL) || CompareTimeStamp (TimeStamp, &Variable->CurrPtr->TimeStamp)) {
               //
@@ -1849,18 +1886,21 @@ UpdateVariable (
         } else {
           //
           // For other Variables, append the new data to the end of previous data.
+          // Max Harware error record variable data size is different from common variable
           //
+          if ((Attributes & EFI_VARIABLE_HARDWARE_ERROR_RECORD) == EFI_VARIABLE_HARDWARE_ERROR_RECORD) {
+            MaxDataSize = PcdGet32 (PcdMaxHardwareErrorVariableSize) - sizeof (VARIABLE_HEADER) - StrSize (VariableName) - GET_PAD_SIZE (StrSize (VariableName));
+          }
+
+          if (Variable->CurrPtr->DataSize + DataSize > MaxDataSize) {
+            //
+            // Exsiting data + Appended data exceed maximum variable size limitation 
+            //
+            Status = EFI_INVALID_PARAMETER;
+            goto Done;
+          }
           CopyMem ((UINT8*)((UINTN) mStorageArea + Variable->CurrPtr->DataSize), Data, DataSize);
           BufSize = Variable->CurrPtr->DataSize + DataSize;
-        }
-
-        RevBufSize = MIN (PcdGet32 (PcdMaxVariableSize), ScratchDataSize);
-        if (BufSize > RevBufSize) {
-          //
-          // If variable size (previous + current) is bigger than reserved buffer in runtime,
-          // return EFI_OUT_OF_RESOURCES.
-          //
-          return EFI_OUT_OF_RESOURCES;
         }
 
         //
@@ -2288,6 +2328,58 @@ IsHwErrRecVariable (
 }
 
 /**
+  Mark a variable that will become read-only after leaving the DXE phase of execution.
+
+  @param[in] This          The VARIABLE_LOCK_PROTOCOL instance.
+  @param[in] VariableName  A pointer to the variable name that will be made read-only subsequently.
+  @param[in] VendorGuid    A pointer to the vendor GUID that will be made read-only subsequently.
+
+  @retval EFI_SUCCESS           The variable specified by the VariableName and the VendorGuid was marked
+                                as pending to be read-only.
+  @retval EFI_INVALID_PARAMETER VariableName or VendorGuid is NULL.
+                                Or VariableName is an empty string.
+  @retval EFI_ACCESS_DENIED     EFI_END_OF_DXE_EVENT_GROUP_GUID or EFI_EVENT_GROUP_READY_TO_BOOT has
+                                already been signaled.
+  @retval EFI_OUT_OF_RESOURCES  There is not enough resource to hold the lock request.
+**/
+EFI_STATUS
+EFIAPI
+VariableLockRequestToLock (
+  IN CONST EDKII_VARIABLE_LOCK_PROTOCOL *This,
+  IN       CHAR16                       *VariableName,
+  IN       EFI_GUID                     *VendorGuid
+  )
+{
+  VARIABLE_ENTRY                  *Entry;
+
+  if (VariableName == NULL || VariableName[0] == 0 || VendorGuid == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (mEndOfDxe) {
+    return EFI_ACCESS_DENIED;
+  }
+
+  Entry = AllocateRuntimePool (sizeof (*Entry) + StrSize (VariableName));
+  if (Entry == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  DEBUG ((EFI_D_INFO, "[Variable] Lock: %g:%s\n", VendorGuid, VariableName));
+
+  AcquireLockOnlyAtBootTime(&mVariableModuleGlobal->VariableGlobal.VariableServicesLock);
+
+  Entry->Name = (CHAR16 *) (Entry + 1);
+  StrCpy   (Entry->Name, VariableName);
+  CopyGuid (&Entry->Guid, VendorGuid);
+  InsertTailList (&mLockedVariableList, &Entry->Link);
+
+  ReleaseLockOnlyAtBootTime (&mVariableModuleGlobal->VariableGlobal.VariableServicesLock);
+
+  return EFI_SUCCESS;
+}
+
+/**
   This code checks if variable should be treated as read-only variable.
 
   @param[in]      VariableName            Name of the Variable.
@@ -2603,6 +2695,8 @@ VariableServiceSetVariable (
   VARIABLE_HEADER                     *NextVariable;
   EFI_PHYSICAL_ADDRESS                Point;
   UINTN                               PayloadSize;
+  LIST_ENTRY                          *Link;
+  VARIABLE_ENTRY                      *Entry;
 
   //
   // Check input parameters.
@@ -2664,14 +2758,20 @@ VariableServiceSetVariable (
     PayloadSize = DataSize;
   }
 
+  if ((UINTN)(~0) - PayloadSize < StrSize(VariableName)){
+    //
+    // Prevent whole variable size overflow 
+    // 
+    return EFI_INVALID_PARAMETER;
+  }
+
   //
   //  The size of the VariableName, including the Unicode Null in bytes plus
   //  the DataSize is limited to maximum size of PcdGet32 (PcdMaxHardwareErrorVariableSize)
   //  bytes for HwErrRec, and PcdGet32 (PcdMaxVariableSize) bytes for the others.
   //
   if ((Attributes & EFI_VARIABLE_HARDWARE_ERROR_RECORD) == EFI_VARIABLE_HARDWARE_ERROR_RECORD) {
-    if ((PayloadSize > PcdGet32 (PcdMaxHardwareErrorVariableSize)) ||
-        (sizeof (VARIABLE_HEADER) + StrSize (VariableName) + PayloadSize > PcdGet32 (PcdMaxHardwareErrorVariableSize))) {
+    if (StrSize (VariableName) + PayloadSize > PcdGet32 (PcdMaxHardwareErrorVariableSize) - sizeof (VARIABLE_HEADER)) {
       return EFI_INVALID_PARAMETER;
     }
     if (!IsHwErrRecVariable(VariableName, VendorGuid)) {
@@ -2682,19 +2782,8 @@ VariableServiceSetVariable (
     //  The size of the VariableName, including the Unicode Null in bytes plus
     //  the DataSize is limited to maximum size of PcdGet32 (PcdMaxVariableSize) bytes.
     //
-    if ((PayloadSize > PcdGet32 (PcdMaxVariableSize)) ||
-        (sizeof (VARIABLE_HEADER) + StrSize (VariableName) + PayloadSize > PcdGet32 (PcdMaxVariableSize))) {
+    if (StrSize (VariableName) + PayloadSize > PcdGet32 (PcdMaxVariableSize) - sizeof (VARIABLE_HEADER)) {
       return EFI_INVALID_PARAMETER;
-    }
-  }
-
-  if (AtRuntime ()) {
-    //
-    // HwErrRecSupport Global Variable identifies the level of hardware error record persistence
-    // support implemented by the platform. This variable is only modified by firmware and is read-only to the OS.
-    //
-    if (CompareGuid (VendorGuid, &gEfiGlobalVariableGuid) && (StrCmp (VariableName, L"HwErrRecSupport") == 0)) {
-      return EFI_WRITE_PROTECTED;
     }
   }
 
@@ -2716,13 +2805,31 @@ VariableServiceSetVariable (
     mVariableModuleGlobal->NonVolatileLastVariableOffset = (UINTN) NextVariable - (UINTN) Point;
   }
 
+  if (mEndOfDxe && mEnableLocking) {
+    //
+    // Treat the variables listed in the forbidden variable list as read-only after leaving DXE phase.
+    //
+    for ( Link = GetFirstNode (&mLockedVariableList)
+        ; !IsNull (&mLockedVariableList, Link)
+        ; Link = GetNextNode (&mLockedVariableList, Link)
+        ) {
+      Entry = BASE_CR (Link, VARIABLE_ENTRY, Link);
+      if (CompareGuid (&Entry->Guid, VendorGuid) && (StrCmp (Entry->Name, VariableName) == 0)) {
+        Status = EFI_WRITE_PROTECTED;
+        DEBUG ((EFI_D_INFO, "[Variable]: Changing readonly variable after leaving DXE phase - %g:%s\n", VendorGuid, VariableName));
+        goto Done;
+      }
+    }
+  }
+
   //
   // Check whether the input variable is already existed.
   //
   Status = FindVariable (VariableName, VendorGuid, &Variable, &mVariableModuleGlobal->VariableGlobal, TRUE);
   if (!EFI_ERROR (Status)) {
     if (((Variable.CurrPtr->Attributes & EFI_VARIABLE_RUNTIME_ACCESS) == 0) && AtRuntime ()) {
-      return EFI_WRITE_PROTECTED;
+      Status = EFI_WRITE_PROTECTED;
+      goto Done;
     }
   }
   
@@ -2747,6 +2854,7 @@ VariableServiceSetVariable (
     Status = ProcessVariable (VariableName, VendorGuid, Data, DataSize, &Variable, Attributes);
   }
 
+Done:
   InterlockedDecrement (&mVariableModuleGlobal->VariableGlobal.ReentrantState);
   ReleaseLockOnlyAtBootTime (&mVariableModuleGlobal->VariableGlobal.VariableServicesLock);
 

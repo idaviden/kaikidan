@@ -15,7 +15,7 @@
   VariableServiceSetVariable(), VariableServiceQueryVariableInfo(), ReclaimForOS(), 
   SmmVariableGetStatistics() should also do validation based on its own knowledge.
 
-Copyright (c) 2010 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials 
 are licensed and made available under the terms and conditions of the BSD License 
 which accompanies this distribution.  The full text of the license may be found at 
@@ -29,6 +29,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Protocol/SmmFirmwareVolumeBlock.h>
 #include <Protocol/SmmFaultTolerantWrite.h>
 #include <Protocol/SmmAccess2.h>
+#include <Protocol/SmmEndOfDxe.h>
 
 #include <Library/SmmServicesTableLib.h>
 
@@ -44,14 +45,62 @@ EFI_HANDLE                                           mSmmVariableHandle      = N
 EFI_HANDLE                                           mVariableHandle         = NULL;
 BOOLEAN                                              mAtRuntime              = FALSE;
 EFI_GUID                                             mZeroGuid               = {0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0}};
-  
+UINT8                                                *mVariableBufferPayload = NULL;
+UINTN                                                mVariableBufferPayloadSize;
+extern BOOLEAN                                       mEndOfDxe;
+extern BOOLEAN                                       mEnableLocking;
+
+/**
+
+  This code sets variable in storage blocks (Volatile or Non-Volatile).
+
+  @param VariableName                     Name of Variable to be found.
+  @param VendorGuid                       Variable vendor GUID.
+  @param Attributes                       Attribute value of the variable found
+  @param DataSize                         Size of Data found. If size is less than the
+                                          data, this value contains the required size.
+  @param Data                             Data pointer.
+
+  @return EFI_INVALID_PARAMETER           Invalid parameter.
+  @return EFI_SUCCESS                     Set successfully.
+  @return EFI_OUT_OF_RESOURCES            Resource not enough to set variable.
+  @return EFI_NOT_FOUND                   Not found.
+  @return EFI_WRITE_PROTECTED             Variable is read-only.
+
+**/
+EFI_STATUS
+EFIAPI
+SmmVariableSetVariable (
+  IN CHAR16                  *VariableName,
+  IN EFI_GUID                *VendorGuid,
+  IN UINT32                  Attributes,
+  IN UINTN                   DataSize,
+  IN VOID                    *Data
+  )
+{
+  EFI_STATUS                 Status;
+
+  //
+  // Disable write protection when the calling SetVariable() through EFI_SMM_VARIABLE_PROTOCOL.
+  //
+  mEnableLocking = FALSE;
+  Status         = VariableServiceSetVariable (
+                     VariableName,
+                     VendorGuid,
+                     Attributes,
+                     DataSize,
+                     Data
+                     );
+  mEnableLocking = TRUE;
+  return Status;
+}
+
 EFI_SMM_VARIABLE_PROTOCOL      gSmmVariable = {
   VariableServiceGetVariable,
   VariableServiceGetNextVariableName,
-  VariableServiceSetVariable,
+  SmmVariableSetVariable,
   VariableServiceQueryVariableInfo
 };
-
 
 /**
   Return TRUE if ExitBootServices () has been called.
@@ -93,6 +142,32 @@ InternalIsAddressInSmram (
   return FALSE;
 }
 
+/**
+  This function check if the address refered by Buffer and Length is valid.
+
+  @param Buffer  the buffer address to be checked.
+  @param Length  the buffer length to be checked.
+
+  @retval TRUE  this address is valid.
+  @retval FALSE this address is NOT valid.
+**/
+BOOLEAN
+InternalIsAddressValid (
+  IN UINTN                 Buffer,
+  IN UINTN                 Length
+  )
+{
+  if (Buffer > (MAX_ADDRESS - Length)) {
+    //
+    // Overflow happen
+    //
+    return FALSE;
+  }
+  if (InternalIsAddressInSmram ((EFI_PHYSICAL_ADDRESS)Buffer, (UINT64)Length)) {
+    return FALSE;
+  }
+  return TRUE;
+}
 
 /**
   Initializes a basic mutual exclusion lock.
@@ -276,6 +351,8 @@ GetFvbCountAndBuffer (
   *NumberHandles = BufferSize / sizeof(EFI_HANDLE);
   if (EFI_ERROR(Status)) {
     *NumberHandles = 0;
+    FreePool (*Buffer);
+    *Buffer = NULL;
   }
 
   return Status;
@@ -311,7 +388,8 @@ SmmVariableGetStatistics (
   UINTN                                                NameLength;
   UINTN                                                StatisticsInfoSize;
   CHAR16                                               *InfoName;
- 
+  EFI_GUID                                             VendorGuid;
+
   ASSERT (InfoEntry != NULL);
   VariableInfo = gVariableInfo; 
   if (VariableInfo == NULL) {
@@ -325,7 +403,9 @@ SmmVariableGetStatistics (
   }
   InfoName = (CHAR16 *)(InfoEntry + 1);
 
-  if (CompareGuid (&InfoEntry->VendorGuid, &mZeroGuid)) {
+  CopyGuid (&VendorGuid, &InfoEntry->VendorGuid);
+
+  if (CompareGuid (&VendorGuid, &mZeroGuid)) {
     //
     // Return the first variable info
     //
@@ -339,7 +419,7 @@ SmmVariableGetStatistics (
   // Get the next variable info
   //
   while (VariableInfo != NULL) {
-    if (CompareGuid (&VariableInfo->VendorGuid, &InfoEntry->VendorGuid)) {
+    if (CompareGuid (&VariableInfo->VendorGuid, &VendorGuid)) {
       NameLength = StrSize (VariableInfo->Name);
       if (NameLength == StrSize (InfoName)) {
         if (CompareMem (VariableInfo->Name, InfoName, NameLength) == 0) {
@@ -417,7 +497,11 @@ SmmVariableHandler (
   SMM_VARIABLE_COMMUNICATE_GET_NEXT_VARIABLE_NAME  *GetNextVariableName;
   SMM_VARIABLE_COMMUNICATE_QUERY_VARIABLE_INFO     *QueryVariableInfo;
   VARIABLE_INFO_ENTRY                              *VariableInfo;
+  SMM_VARIABLE_COMMUNICATE_LOCK_VARIABLE           *VariableToLock;
   UINTN                                            InfoSize;
+  UINTN                                            NameBufferSize;
+  UINTN                                            CommBufferPayloadSize;
+  UINTN                                            TempCommBufferSize;
 
   //
   // If input is invalid, stop processing this SMI
@@ -426,27 +510,59 @@ SmmVariableHandler (
     return EFI_SUCCESS;
   }
 
-  if (*CommBufferSize < SMM_VARIABLE_COMMUNICATE_HEADER_SIZE) {
+  TempCommBufferSize = *CommBufferSize;
+
+  if (TempCommBufferSize < SMM_VARIABLE_COMMUNICATE_HEADER_SIZE) {
+    DEBUG ((EFI_D_ERROR, "SmmVariableHandler: SMM communication buffer size invalid!\n"));
+    return EFI_SUCCESS;
+  }
+  CommBufferPayloadSize = TempCommBufferSize - SMM_VARIABLE_COMMUNICATE_HEADER_SIZE;
+  if (CommBufferPayloadSize > mVariableBufferPayloadSize) {
+    DEBUG ((EFI_D_ERROR, "SmmVariableHandler: SMM communication buffer payload size invalid!\n"));
     return EFI_SUCCESS;
   }
 
-  if (InternalIsAddressInSmram ((EFI_PHYSICAL_ADDRESS)(UINTN)CommBuffer, *CommBufferSize)) {
-    DEBUG ((EFI_D_ERROR, "SMM communication buffer size is in SMRAM!\n"));
+  if (!InternalIsAddressValid ((UINTN)CommBuffer, TempCommBufferSize)) {
+    DEBUG ((EFI_D_ERROR, "SmmVariableHandler: SMM communication buffer in SMRAM or overflow!\n"));
     return EFI_SUCCESS;
   }
 
   SmmVariableFunctionHeader = (SMM_VARIABLE_COMMUNICATE_HEADER *)CommBuffer;
   switch (SmmVariableFunctionHeader->Function) {
     case SMM_VARIABLE_FUNCTION_GET_VARIABLE:
-      SmmVariableHeader = (SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE *) SmmVariableFunctionHeader->Data;
+      if (CommBufferPayloadSize < OFFSET_OF(SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name)) {
+        DEBUG ((EFI_D_ERROR, "GetVariable: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
+      }
+      //
+      // Copy the input communicate buffer payload to pre-allocated SMM variable buffer payload.
+      //
+      CopyMem (mVariableBufferPayload, SmmVariableFunctionHeader->Data, CommBufferPayloadSize);
+      SmmVariableHeader = (SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE *) mVariableBufferPayload;
+      if (((UINTN)(~0) - SmmVariableHeader->DataSize < OFFSET_OF(SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name)) ||
+         ((UINTN)(~0) - SmmVariableHeader->NameSize < OFFSET_OF(SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name) + SmmVariableHeader->DataSize)) {
+        //
+        // Prevent InfoSize overflow happen
+        //
+        Status = EFI_ACCESS_DENIED;
+        goto EXIT;
+      }
       InfoSize = OFFSET_OF(SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name) 
                  + SmmVariableHeader->DataSize + SmmVariableHeader->NameSize;
 
       //
       // SMRAM range check already covered before
       //
-      if (InfoSize > *CommBufferSize - SMM_VARIABLE_COMMUNICATE_HEADER_SIZE) {
-        DEBUG ((EFI_D_ERROR, "Data size exceed communication buffer size limit!\n"));
+      if (InfoSize > CommBufferPayloadSize) {
+        DEBUG ((EFI_D_ERROR, "GetVariable: Data size exceed communication buffer size limit!\n"));
+        Status = EFI_ACCESS_DENIED;
+        goto EXIT;
+      }
+
+      if (SmmVariableHeader->NameSize < sizeof (CHAR16) || SmmVariableHeader->Name[SmmVariableHeader->NameSize/sizeof (CHAR16) - 1] != L'\0') {
+        //
+        // Make sure VariableName is A Null-terminated string.
+        //
         Status = EFI_ACCESS_DENIED;
         goto EXIT;
       }
@@ -458,17 +574,42 @@ SmmVariableHandler (
                  &SmmVariableHeader->DataSize,
                  (UINT8 *)SmmVariableHeader->Name + SmmVariableHeader->NameSize
                  );
+      CopyMem (SmmVariableFunctionHeader->Data, mVariableBufferPayload, CommBufferPayloadSize);
       break;
       
     case SMM_VARIABLE_FUNCTION_GET_NEXT_VARIABLE_NAME:
-      GetNextVariableName = (SMM_VARIABLE_COMMUNICATE_GET_NEXT_VARIABLE_NAME *) SmmVariableFunctionHeader->Data;
+      if (CommBufferPayloadSize < OFFSET_OF(SMM_VARIABLE_COMMUNICATE_GET_NEXT_VARIABLE_NAME, Name)) {
+        DEBUG ((EFI_D_ERROR, "GetNextVariableName: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
+      }
+      //
+      // Copy the input communicate buffer payload to pre-allocated SMM variable buffer payload.
+      //
+      CopyMem (mVariableBufferPayload, SmmVariableFunctionHeader->Data, CommBufferPayloadSize);
+      GetNextVariableName = (SMM_VARIABLE_COMMUNICATE_GET_NEXT_VARIABLE_NAME *) mVariableBufferPayload;
+      if ((UINTN)(~0) - GetNextVariableName->NameSize < OFFSET_OF(SMM_VARIABLE_COMMUNICATE_GET_NEXT_VARIABLE_NAME, Name)) {
+        //
+        // Prevent InfoSize overflow happen
+        //
+        Status = EFI_ACCESS_DENIED;
+        goto EXIT;
+      }
       InfoSize = OFFSET_OF(SMM_VARIABLE_COMMUNICATE_GET_NEXT_VARIABLE_NAME, Name) + GetNextVariableName->NameSize;
 
       //
       // SMRAM range check already covered before
       //
-      if (InfoSize > *CommBufferSize - SMM_VARIABLE_COMMUNICATE_HEADER_SIZE) {
-        DEBUG ((EFI_D_ERROR, "Data size exceed communication buffer size limit!\n"));
+      if (InfoSize > CommBufferPayloadSize) {
+        DEBUG ((EFI_D_ERROR, "GetNextVariableName: Data size exceed communication buffer size limit!\n"));
+        Status = EFI_ACCESS_DENIED;
+        goto EXIT;
+      }
+
+      NameBufferSize = CommBufferPayloadSize - OFFSET_OF(SMM_VARIABLE_COMMUNICATE_GET_NEXT_VARIABLE_NAME, Name);
+      if (NameBufferSize < sizeof (CHAR16) || GetNextVariableName->Name[NameBufferSize/sizeof (CHAR16) - 1] != L'\0') {
+        //
+        // Make sure input VariableName is A Null-terminated string.
+        //
         Status = EFI_ACCESS_DENIED;
         goto EXIT;
       }
@@ -478,10 +619,48 @@ SmmVariableHandler (
                  GetNextVariableName->Name,
                  &GetNextVariableName->Guid
                  );
+      CopyMem (SmmVariableFunctionHeader->Data, mVariableBufferPayload, CommBufferPayloadSize);
       break;
       
     case SMM_VARIABLE_FUNCTION_SET_VARIABLE:
-      SmmVariableHeader = (SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE *) SmmVariableFunctionHeader->Data;
+      if (CommBufferPayloadSize < OFFSET_OF(SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name)) {
+        DEBUG ((EFI_D_ERROR, "SetVariable: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
+      }
+      //
+      // Copy the input communicate buffer payload to pre-allocated SMM variable buffer payload.
+      //
+      CopyMem (mVariableBufferPayload, SmmVariableFunctionHeader->Data, CommBufferPayloadSize);
+      SmmVariableHeader = (SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE *) mVariableBufferPayload;
+      if (((UINTN)(~0) - SmmVariableHeader->DataSize < OFFSET_OF(SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name)) ||
+         ((UINTN)(~0) - SmmVariableHeader->NameSize < OFFSET_OF(SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name) + SmmVariableHeader->DataSize)) {
+        //
+        // Prevent InfoSize overflow happen
+        //
+        Status = EFI_ACCESS_DENIED;
+        goto EXIT;
+      }
+      InfoSize = OFFSET_OF(SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name)
+                 + SmmVariableHeader->DataSize + SmmVariableHeader->NameSize;
+
+      //
+      // SMRAM range check already covered before
+      // Data buffer should not contain SMM range
+      //
+      if (InfoSize > CommBufferPayloadSize) {
+        DEBUG ((EFI_D_ERROR, "SetVariable: Data size exceed communication buffer size limit!\n"));
+        Status = EFI_ACCESS_DENIED;
+        goto EXIT;
+      }
+
+      if (SmmVariableHeader->NameSize < sizeof (CHAR16) || SmmVariableHeader->Name[SmmVariableHeader->NameSize/sizeof (CHAR16) - 1] != L'\0') {
+        //
+        // Make sure VariableName is A Null-terminated string.
+        //
+        Status = EFI_ACCESS_DENIED;
+        goto EXIT;
+      }
+
       Status = VariableServiceSetVariable (
                  SmmVariableHeader->Name,
                  &SmmVariableHeader->Guid,
@@ -492,17 +671,11 @@ SmmVariableHandler (
       break;
       
     case SMM_VARIABLE_FUNCTION_QUERY_VARIABLE_INFO:
-      QueryVariableInfo = (SMM_VARIABLE_COMMUNICATE_QUERY_VARIABLE_INFO *) SmmVariableFunctionHeader->Data;
-      InfoSize = sizeof(SMM_VARIABLE_COMMUNICATE_QUERY_VARIABLE_INFO);
-
-      //
-      // SMRAM range check already covered before
-      //
-      if (InfoSize > *CommBufferSize - SMM_VARIABLE_COMMUNICATE_HEADER_SIZE) {
-        DEBUG ((EFI_D_ERROR, "Data size exceed communication buffer size limit!\n"));
-        Status = EFI_ACCESS_DENIED;
-        goto EXIT;
+      if (CommBufferPayloadSize < sizeof (SMM_VARIABLE_COMMUNICATE_QUERY_VARIABLE_INFO)) {
+        DEBUG ((EFI_D_ERROR, "QueryVariableInfo: SMM communication buffer size invalid!\n"));
+        return EFI_SUCCESS;
       }
+      QueryVariableInfo = (SMM_VARIABLE_COMMUNICATE_QUERY_VARIABLE_INFO *) SmmVariableFunctionHeader->Data;
 
       Status = VariableServiceQueryVariableInfo (
                  QueryVariableInfo->Attributes,
@@ -513,6 +686,7 @@ SmmVariableHandler (
       break;
 
     case SMM_VARIABLE_FUNCTION_READY_TO_BOOT:
+      mEndOfDxe = TRUE;
       if (AtRuntime()) {
         Status = EFI_UNSUPPORTED;
         break;
@@ -528,7 +702,7 @@ SmmVariableHandler (
 
     case SMM_VARIABLE_FUNCTION_GET_STATISTICS:
       VariableInfo = (VARIABLE_INFO_ENTRY *) SmmVariableFunctionHeader->Data;
-      InfoSize = *CommBufferSize - SMM_VARIABLE_COMMUNICATE_HEADER_SIZE;
+      InfoSize = TempCommBufferSize - SMM_VARIABLE_COMMUNICATE_HEADER_SIZE;
 
       //
       // Do not need to check SmmVariableFunctionHeader->Data in SMRAM here. 
@@ -536,13 +710,26 @@ SmmVariableHandler (
       //
      
       if (InternalIsAddressInSmram ((EFI_PHYSICAL_ADDRESS)(UINTN)CommBufferSize, sizeof(UINTN))) {
-        DEBUG ((EFI_D_ERROR, "SMM communication buffer size is in SMRAM!\n"));
+        DEBUG ((EFI_D_ERROR, "GetStatistics: SMM communication buffer in SMRAM!\n"));
         Status = EFI_ACCESS_DENIED;
         goto EXIT;
       }  
 
       Status = SmmVariableGetStatistics (VariableInfo, &InfoSize);
       *CommBufferSize = InfoSize + SMM_VARIABLE_COMMUNICATE_HEADER_SIZE;
+      break;
+
+    case SMM_VARIABLE_FUNCTION_LOCK_VARIABLE:
+      if (mEndOfDxe) {
+        Status = EFI_ACCESS_DENIED;
+      } else {
+        VariableToLock = (SMM_VARIABLE_COMMUNICATE_LOCK_VARIABLE *) SmmVariableFunctionHeader->Data;
+        Status = VariableLockRequestToLock (
+                   NULL,
+                   VariableToLock->Name,
+                   &VariableToLock->Guid
+                   );
+      }
       break;
 
     default:
@@ -556,6 +743,28 @@ EXIT:
   return EFI_SUCCESS;
 }
 
+/**
+  SMM END_OF_DXE protocol notification event handler.
+
+  @param  Protocol   Points to the protocol's unique identifier
+  @param  Interface  Points to the interface instance
+  @param  Handle     The handle on which the interface was installed
+
+  @retval EFI_SUCCESS   SmmEndOfDxeCallback runs successfully
+
+**/
+EFI_STATUS
+EFIAPI
+SmmEndOfDxeCallback (
+  IN CONST EFI_GUID                       *Protocol,
+  IN VOID                                 *Interface,
+  IN EFI_HANDLE                           Handle
+  )
+{
+  DEBUG ((EFI_D_INFO, "[Variable]END_OF_DXE is signaled\n"));
+  mEndOfDxe = TRUE;
+  return EFI_SUCCESS;
+}
 
 /**
   SMM Fault Tolerant Write protocol notification event handler.
@@ -652,6 +861,7 @@ VariableServiceInitialize (
   VOID                                    *SmmFtwRegistration;
   EFI_SMM_ACCESS2_PROTOCOL                *SmmAccess;
   UINTN                                   Size;
+  VOID                                    *SmmEndOfDxeRegistration;
 
   //
   // Variable initialize.
@@ -693,6 +903,16 @@ VariableServiceInitialize (
 
   mSmramRangeCount = Size / sizeof (EFI_SMRAM_DESCRIPTOR);
 
+  mVariableBufferPayloadSize = MAX (PcdGet32 (PcdMaxVariableSize), PcdGet32 (PcdMaxHardwareErrorVariableSize)) +
+                               OFFSET_OF (SMM_VARIABLE_COMMUNICATE_ACCESS_VARIABLE, Name) - sizeof (VARIABLE_HEADER);
+
+  Status = gSmst->SmmAllocatePool (
+                    EfiRuntimeServicesData,
+                    mVariableBufferPayloadSize,
+                    (VOID **)&mVariableBufferPayload
+                    );
+  ASSERT_EFI_ERROR (Status);
+
   ///
   /// Register SMM variable SMI handler
   ///
@@ -711,6 +931,16 @@ VariableServiceInitialize (
                                         );
   ASSERT_EFI_ERROR (Status);
  
+  //
+  // Register EFI_SMM_END_OF_DXE_PROTOCOL_GUID notify function.
+  //
+  Status = gSmst->SmmRegisterProtocolNotify (
+                    &gEfiSmmEndOfDxeProtocolGuid,
+                    SmmEndOfDxeCallback,
+                    &SmmEndOfDxeRegistration
+                    );
+  ASSERT_EFI_ERROR (Status);
+
   //
   // Register FtwNotificationEvent () notify function.
   // 

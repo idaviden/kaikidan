@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2012, ARM Limited. All rights reserved.
+//  Copyright (c) 2012-2013, ARM Limited. All rights reserved.
 //
 //  This program and the accompanying materials
 //  are licensed and made available under the terms and conditions of the BSD License
@@ -16,10 +16,20 @@
 
   INCLUDE AsmMacroIoLib.inc
 
+  EXPORT  ArmPlatformPeiBootAction
   EXPORT  ArmPlatformGetCorePosition
+  EXPORT  ArmPlatformGetPrimaryCoreMpId
+  EXPORT  ArmPlatformIsPrimaryCore
 
+  IMPORT  _gPcd_FixedAtBuild_PcdArmPrimaryCore
+  IMPORT  _gPcd_FixedAtBuild_PcdArmPrimaryCoreMask
+  
   PRESERVE8
   AREA    ArmPlatformNullHelper, CODE, READONLY
+
+ArmPlatformPeiBootAction FUNCTION
+  bx    lr
+  ENDFUNC
 
 //UINTN
 //ArmPlatformGetCorePosition (
@@ -30,6 +40,32 @@ ArmPlatformGetCorePosition FUNCTION
   and	r0, r0, #ARM_CLUSTER_MASK
   add	r0, r1, r0, LSR #7
   bx 	lr
+  ENDFUNC
+
+//UINTN
+//ArmPlatformGetPrimaryCoreMpId (
+//  VOID
+//  );
+ArmPlatformGetPrimaryCoreMpId FUNCTION
+  LoadConstantToReg (_gPcd_FixedAtBuild_PcdArmPrimaryCoreMask, r0)
+  ldr   r0, [r0]
+  bx    lr
+  ENDFUNC
+
+//UINTN
+//ArmPlatformIsPrimaryCore (
+//  IN UINTN MpId
+//  );
+ArmPlatformIsPrimaryCore FUNCTION
+  LoadConstantToReg (_gPcd_FixedAtBuild_PcdArmPrimaryCoreMask, r1)
+  ldr   r1, [r1]
+  and   r0, r0, r1
+  LoadConstantToReg (_gPcd_FixedAtBuild_PcdArmPrimaryCore, r1)
+  ldr   r1, [r1]
+  cmp   r0, r1
+  moveq r0, #1
+  movne r0, #0
+  bx    lr
   ENDFUNC
 
   END

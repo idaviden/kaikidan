@@ -1,6 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+*  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 *  
 *  This program and the accompanying materials                          
 *  are licensed and made available under the terms and conditions of the BSD License         
@@ -24,7 +24,6 @@
 //
 #include <Ppi/MasterBootMode.h>
 #include <Ppi/BootInRecoveryMode.h>
-#include <Guid/MemoryTypeInformation.h>
 
 #include <Library/ArmLib.h>
 
@@ -41,9 +40,47 @@ typedef struct {
   UINT64                       NumberOfBytes;
 } ARM_SYSTEM_MEMORY_REGION_DESCRIPTOR;
 
+/**
+  Return the core position from the value of its MpId register
+
+  This function returns the core position from the position 0 in the processor.
+  This function might be called from assembler before any stack is set.
+
+  @return   Return the core position
+
+**/
 UINTN
 ArmPlatformGetCorePosition (
   IN UINTN MpId
+  );
+
+/**
+  Return a non-zero value if the callee is the primary core
+
+  This function returns a non-zero value if the callee is the primary core.
+  The primary core is the core responsible to initialize the hardware and run UEFI.
+  This function might be called from assembler before any stack is set.
+
+  @return   Return a non-zero value if the callee is the primary core.
+
+**/
+UINTN
+ArmPlatformIsPrimaryCore (
+  IN UINTN MpId
+  );
+
+/**
+  Return the MpId of the primary core
+
+  This function returns the MpId of the primary core.
+  This function might be called from assembler before any stack is set.
+
+  @return   Return the MpId of the primary core
+
+**/
+UINTN
+ArmPlatformGetPrimaryCoreMpId (
+  VOID
   );
 
 /**
@@ -95,21 +132,6 @@ ArmPlatformInitializeSystemMemory (
 VOID
 ArmPlatformGetVirtualMemoryMap (
   OUT ARM_MEMORY_REGION_DESCRIPTOR** VirtualMemoryMap
-  );
-
-/**
-  Return the EFI Memory Map of your platform
-
-  This EFI Memory Map of the System Memory is used by MemoryInitPei module to create the Resource
-  Descriptor HOBs used by DXE core.
-
-  @param[out]   EfiMemoryMap        Array of ARM_SYSTEM_MEMORY_REGION_DESCRIPTOR describing an
-                                    EFI Memory region. This array must be ended by a zero-filled entry
-
-**/
-EFI_STATUS
-ArmPlatformGetAdditionalSystemMemory (
-  OUT ARM_SYSTEM_MEMORY_REGION_DESCRIPTOR** EfiMemoryMap
   );
 
 /**

@@ -285,7 +285,7 @@ VirtioRingUninit (
 
   The calling driver must be in VSTAT_DRIVER_OK state.
 
-  @param[in out] Ring  The virtio ring we intend to append descriptors to.
+  @param[in,out] Ring  The virtio ring we intend to append descriptors to.
 
   @param[out] Indices  The DESC_INDICES structure to initialize.
 
@@ -306,8 +306,11 @@ VirtioPrepare (
   //
   // Prepare for virtio-0.9.5, 2.4.1 Supplying Buffers to the Device.
   //
-  Indices->HeadIdx = *Ring->Avail.Idx;
-  Indices->NextAvailIdx = Indices->HeadIdx;
+  // Since we support only one in-flight descriptor chain, we can always build
+  // that chain starting at entry #0 of the descriptor table.
+  //
+  Indices->HeadDescIdx = 0;
+  Indices->NextDescIdx = Indices->HeadDescIdx;
 }
 
 
@@ -315,9 +318,8 @@ VirtioPrepare (
 
   Append a contiguous buffer for transmission / reception via the virtio ring.
 
-  This function implements the following sections from virtio-0.9.5:
+  This function implements the following section from virtio-0.9.5:
   - 2.4.1.1 Placing Buffers into the Descriptor Table
-  - 2.4.1.2 Updating the Available Ring
 
   Free space is taken as granted, since the individual drivers support only
   synchronous requests and host side status is processed in lock-step with
@@ -327,31 +329,26 @@ VirtioPrepare (
   The caller is responsible for initializing *Indices with VirtioPrepare()
   first.
 
-  @param[in out] Ring           The virtio ring to append the buffer to, as a
-                                descriptor.
+  @param[in,out] Ring        The virtio ring to append the buffer to, as a
+                             descriptor.
 
-  @param [in] BufferPhysAddr    (Guest pseudo-physical) start address of the
-                                transmit / receive buffer.
+  @param[in] BufferPhysAddr  (Guest pseudo-physical) start address of the
+                             transmit / receive buffer.
 
-  @param [in] BufferSize        Number of bytes to transmit or receive.
+  @param[in] BufferSize      Number of bytes to transmit or receive.
 
-  @param [in] Flags             A bitmask of VRING_DESC_F_* flags. The caller
-                                computes this mask dependent on further buffers
-                                to append and transfer direction.
-                                VRING_DESC_F_INDIRECT is unsupported. The
-                                VRING_DESC.Next field is always set, but the
-                                host only interprets it dependent on
-                                VRING_DESC_F_NEXT.
+  @param[in] Flags           A bitmask of VRING_DESC_F_* flags. The caller
+                             computes this mask dependent on further buffers to
+                             append and transfer direction.
+                             VRING_DESC_F_INDIRECT is unsupported. The
+                             VRING_DESC.Next field is always set, but the host
+                             only interprets it dependent on VRING_DESC_F_NEXT.
 
-  In *Indices:
-
-  @param [in] HeadIdx           The index identifying the head buffer (first
-                                buffer appended) belonging to this same
-                                request.
-
-  @param [in out] NextAvailIdx  On input, the index identifying the next
-                                descriptor available to carry the buffer. On
-                                output, incremented by one, modulo 2^16.
+  @param[in,out] Indices     Indices->HeadDescIdx is not accessed.
+                             On input, Indices->NextDescIdx identifies the next
+                             descriptor to carry the buffer. On output,
+                             Indices->NextDescIdx is incremented by one, modulo
+                             2^16.
 
 **/
 VOID
@@ -366,29 +363,28 @@ VirtioAppendDesc (
 {
   volatile VRING_DESC *Desc;
 
-  Desc        = &Ring->Desc[Indices->NextAvailIdx % Ring->QueueSize];
+  Desc        = &Ring->Desc[Indices->NextDescIdx++ % Ring->QueueSize];
   Desc->Addr  = BufferPhysAddr;
   Desc->Len   = BufferSize;
   Desc->Flags = Flags;
-  Ring->Avail.Ring[Indices->NextAvailIdx++ % Ring->QueueSize] =
-    Indices->HeadIdx % Ring->QueueSize;
-  Desc->Next  = Indices->NextAvailIdx % Ring->QueueSize;
+  Desc->Next  = Indices->NextDescIdx % Ring->QueueSize;
 }
 
 
 /**
 
-  Notify the host about appended descriptors and wait until it processes the
-  last one (ie. all of them).
+  Notify the host about the descriptor chain just built, and wait until the
+  host processes it.
 
   @param[in] PciIo        The target virtio PCI device to notify.
 
   @param[in] VirtQueueId  Identifies the queue for the target device.
 
-  @param[in out] Ring     The virtio ring with descriptors to submit.
+  @param[in,out] Ring     The virtio ring with descriptors to submit.
 
-  @param[in] Indices      The function waits until the host processes
-                          descriptors up to Indices->NextAvailIdx.
+  @param[in] Indices      Indices->NextDescIdx is not accessed.
+                          Indices->HeadDescIdx identifies the head descriptor
+                          of the descriptor chain.
 
 
   @return              Error code from VirtioWrite() if it fails.
@@ -405,14 +401,26 @@ VirtioFlush (
   IN     DESC_INDICES        *Indices
   )
 {
+  UINT16     NextAvailIdx;
   EFI_STATUS Status;
   UINTN      PollPeriodUsecs;
+
+  //
+  // virtio-0.9.5, 2.4.1.2 Updating the Available Ring
+  //
+  // It is not exactly clear from the wording of the virtio-0.9.5
+  // specification, but each entry in the Available Ring references only the
+  // head descriptor of any given descriptor chain.
+  //
+  NextAvailIdx = *Ring->Avail.Idx;
+  Ring->Avail.Ring[NextAvailIdx++ % Ring->QueueSize] =
+    Indices->HeadDescIdx % Ring->QueueSize;
 
   //
   // virtio-0.9.5, 2.4.1.3 Updating the Index Field
   //
   MemoryFence();
-  *Ring->Avail.Idx = Indices->NextAvailIdx;
+  *Ring->Avail.Idx = NextAvailIdx;
 
   //
   // virtio-0.9.5, 2.4.1.4 Notifying the Device -- gratuitous notifications are
@@ -439,7 +447,7 @@ VirtioFlush (
   //
   PollPeriodUsecs = 1;
   MemoryFence();
-  while (*Ring->Used.Idx != Indices->NextAvailIdx) {
+  while (*Ring->Used.Idx != NextAvailIdx) {
     gBS->Stall (PollPeriodUsecs); // calls AcpiTimerLib::MicroSecondDelay
 
     if (PollPeriodUsecs < 1024) {

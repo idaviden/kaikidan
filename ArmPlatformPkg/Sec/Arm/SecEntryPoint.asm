@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+//  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 //  
 //  This program and the accompanying materials                          
 //  are licensed and made available under the terms and conditions of the BSD License         
@@ -18,6 +18,8 @@
   INCLUDE AsmMacroIoLib.inc
   
   IMPORT  CEntryPoint
+  IMPORT  ArmPlatformIsPrimaryCore
+  IMPORT  ArmPlatformGetCorePosition
   IMPORT  ArmPlatformSecBootAction
   IMPORT  ArmPlatformSecBootMemoryInit
   IMPORT  ArmDisableInterrupts
@@ -33,10 +35,10 @@ StartupAddr        DCD      CEntryPoint
 
 _ModuleEntryPoint FUNCTION
   // First ensure all interrupts are disabled
-  blx   ArmDisableInterrupts
+  bl    ArmDisableInterrupts
 
   // Ensure that the MMU and caches are off
-  blx   ArmDisableCachesAndMmu
+  bl    ArmDisableCachesAndMmu
 
   // By default, we are doing a cold boot
   mov   r10, #ARM_SEC_COLD_BOOT
@@ -47,13 +49,12 @@ _ModuleEntryPoint FUNCTION
 _IdentifyCpu 
   // Identify CPU ID
   bl    ArmReadMpidr
-  // Get ID of this CPU in Multicore system
-  LoadConstantToReg (FixedPcdGet32(PcdArmPrimaryCoreMask), r1)
-  and   r5, r0, r1
+  // Keep a copy of the MpId register value
+  mov   r9, r0
   
   // Is it the Primary Core ?
-  LoadConstantToReg (FixedPcdGet32(PcdArmPrimaryCore), r3)
-  cmp   r5, r3
+  bl	ArmPlatformIsPrimaryCore
+  cmp   r0, #1
   // Only the primary core initialize the memory (SMC)
   beq   _InitMem
   
@@ -76,9 +77,6 @@ _InitMem
   // Initialize Init Boot Memory
   bl    ArmPlatformSecBootMemoryInit
   
-  // Only Primary CPU could run this line (the secondary cores have jumped from _IdentifyCpu to _SetupStack)
-  LoadConstantToReg (FixedPcdGet32(PcdArmPrimaryCore), r5)
-
 _SetupPrimaryCoreStack
   // Get the top of the primary stacks (and the base of the secondary stacks)
   LoadConstantToReg (FixedPcdGet32(PcdCPUCoresSecStackBase), r1)
@@ -96,10 +94,11 @@ _SetupSecondaryCoreStack
   // Get the top of the primary stacks (and the base of the secondary stacks)
   LoadConstantToReg (FixedPcdGet32(PcdCPUCoresSecStackBase), r1)
   LoadConstantToReg (FixedPcdGet32(PcdCPUCoreSecPrimaryStackSize), r2)
-  add   r1, r1, r2
+  add   r6, r1, r2
 
-  // Get the Core Position (ClusterId * 4) + CoreId
-  GetCorePositionFromMpId(r0, r5, r2)
+  // Get the Core Position
+  mov   r0, r9
+  bl    ArmPlatformGetCorePosition
   // The stack starts at the top of the stack region. Add '1' to the Core Position to get the top of the stack
   add   r0, r0, #1
 
@@ -107,7 +106,7 @@ _SetupSecondaryCoreStack
   LoadConstantToReg (FixedPcdGet32(PcdCPUCoreSecSecondaryStackSize), r2)
   mul   r0, r0, r2
   // SP = StackBase + StackOffset
-  add   sp, r1, r0
+  add   sp, r6, r0
 
 _PrepareArguments
   // Move sec startup address into a data register
@@ -117,7 +116,7 @@ _PrepareArguments
   // Jump to SEC C code
   //    r0 = mp_id
   //    r1 = Boot Mode
-  mov   r0, r5
+  mov   r0, r9
   mov   r1, r10
   blx   r3
   ENDFUNC
