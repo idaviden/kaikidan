@@ -13,7 +13,7 @@
   PartitionValidGptTable(), PartitionCheckGptEntry() routine will accept disk
   partition content and validate the GPT table and GPT entry.
 
-Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -184,6 +184,7 @@ PartitionSetCrc (
   @param[in]  This       Calling context.
   @param[in]  Handle     Parent Handle.
   @param[in]  DiskIo     Parent DiskIo interface.
+  @param[in]  DiskIo2    Parent DiskIo2 interface.
   @param[in]  BlockIo    Parent BlockIo interface.
   @param[in]  BlockIo2   Parent BlockIo2 interface.
   @param[in]  DevicePath Parent Device Path.
@@ -198,6 +199,7 @@ PartitionInstallGptChildHandles (
   IN  EFI_DRIVER_BINDING_PROTOCOL  *This,
   IN  EFI_HANDLE                   Handle,
   IN  EFI_DISK_IO_PROTOCOL         *DiskIo,
+  IN  EFI_DISK_IO2_PROTOCOL        *DiskIo2,
   IN  EFI_BLOCK_IO_PROTOCOL        *BlockIo,
   IN  EFI_BLOCK_IO2_PROTOCOL       *BlockIo2,
   IN  EFI_DEVICE_PATH_PROTOCOL     *DevicePath
@@ -307,7 +309,7 @@ PartitionInstallGptChildHandles (
     DEBUG ((EFI_D_INFO, " Valid primary and !Valid backup partition table\n"));
     DEBUG ((EFI_D_INFO, " Restore backup partition table by the primary\n"));
     if (!PartitionRestoreGptTable (BlockIo, DiskIo, PrimaryHeader)) {
-      DEBUG ((EFI_D_INFO, " Restore  backup partition table error\n"));
+      DEBUG ((EFI_D_INFO, " Restore backup partition table error\n"));
     }
 
     if (PartitionValidGptTable (BlockIo, DiskIo, PrimaryHeader->AlternateLBA, BackupHeader)) {
@@ -400,6 +402,7 @@ PartitionInstallGptChildHandles (
                This,
                Handle,
                DiskIo,
+               DiskIo2,
                BlockIo,
                BlockIo2,
                DevicePath,
@@ -487,9 +490,18 @@ PartitionValidGptTable (
 
   if ((PartHdr->Header.Signature != EFI_PTAB_HEADER_ID) ||
       !PartitionCheckCrc (BlockSize, &PartHdr->Header) ||
-      PartHdr->MyLBA != Lba
+      PartHdr->MyLBA != Lba ||
+      (PartHdr->SizeOfPartitionEntry < sizeof (EFI_PARTITION_ENTRY))
       ) {
     DEBUG ((EFI_D_INFO, "Invalid efi partition table header\n"));
+    FreePool (PartHdr);
+    return FALSE;
+  }
+
+  //
+  // Ensure the NumberOfPartitionEntries * SizeOfPartitionEntry doesn't overflow.
+  //
+  if (PartHdr->NumberOfPartitionEntries > DivU64x32 (MAX_UINTN, PartHdr->SizeOfPartitionEntry)) {
     FreePool (PartHdr);
     return FALSE;
   }

@@ -30,9 +30,7 @@
   BUILD_TARGETS                  = DEBUG|RELEASE
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = ArmPlatformPkg/ArmVExpressPkg/ArmVExpress-CTA15-A7.fdf
-!ifndef $(EDK2_SKIP_PEICORE)
   DEFINE EDK2_SKIP_PEICORE=1
-!endif
 
 !include ArmPlatformPkg/ArmVExpressPkg/ArmVExpress.dsc.inc
 
@@ -54,7 +52,7 @@
   ArmSmcLib|ArmPkg/Library/ArmSmcLib/ArmSmcLib.inf
 
 [BuildOptions]
-!ifdef $(ARM_BIGLITTLE_TC2)
+!ifdef ARM_BIGLITTLE_TC2
   RVCT:*_*_ARM_ARCHCC_FLAGS  = -DARM_BIGLITTLE_TC2=1
   RVCT:*_*_ARM_PP_FLAGS  = -DARM_BIGLITTLE_TC2=1
 
@@ -103,7 +101,7 @@
   # Stacks for MPCores in Secure World
   # SRAM (CS1) is only available between 0x14000000 and 0x14001000 on the model
   # ZBT SRAM is available between 0x2E000000 and 0x2E010000 on the model
-!ifdef $(ARM_BIGLITTLE_TC2)
+!ifdef ARM_BIGLITTLE_TC2
   gArmPlatformTokenSpaceGuid.PcdCPUCoresSecStackBase|0x17000000
 !else
   gArmPlatformTokenSpaceGuid.PcdCPUCoresSecStackBase|0x2E000000
@@ -117,7 +115,7 @@
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x80000000
   gArmTokenSpaceGuid.PcdSystemMemorySize|0x40000000
 
-!ifdef $(ARM_BIGLITTLE_TC2)
+!ifdef ARM_BIGLITTLE_TC2
   # TC2 Dual-Cluster profile
   gArmPlatformTokenSpaceGuid.PcdClusterCount|2
 
@@ -128,7 +126,6 @@
   #  A7_1 = 0x101, GicCoreId = 3
   #  A7_2 = 0x102, GicCoreId = 4
   gArmTokenSpaceGuid.PcdArmPrimaryCore|0x100
-  gArmTokenSpaceGuid.PcdGicPrimaryCoreId|2
 !endif
   
   #
@@ -155,7 +152,7 @@
   ## PL031 RealTimeClock
   gArmPlatformTokenSpaceGuid.PcdPL031RtcBase|0x1C170000
 
-!ifdef $(ARM_BIGLITTLE_TC2)
+!ifdef ARM_BIGLITTLE_TC2
   ## PL111 Lcd & HdLcd
   gArmPlatformTokenSpaceGuid.PcdPL111LcdBase|0x1C1F0000
   gArmPlatformTokenSpaceGuid.PcdArmHdLcdBase|0x2B000000
@@ -175,9 +172,6 @@
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x2C001000
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C002000
   
-  # Ethernet (SMSC 91C111)
-  gArmPlatformTokenSpaceGuid.PcdLan9118DxeBaseAddress|0x1A000000
-  
   #
   # ARM OS Loader
   #
@@ -187,7 +181,7 @@
   gArmPlatformTokenSpaceGuid.PcdDefaultBootDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/uImage"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootInitrdPath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/uInitrd"
   gArmPlatformTokenSpaceGuid.PcdDefaultFdtLocalDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/v2p-ca15-tc2.dtb"
-  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0,38400n8 root=/dev/mmcblk0p2 rootwait ro androidboot.console=ttyAMA0 mmci.fmax=12000000"
+  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0,38400n8 root=/dev/mmcblk0p2 rootwait ro androidboot.console=ttyAMA0"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootType|3
   gArmPlatformTokenSpaceGuid.PcdFdtDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/v2p-ca15-tc2.dtb"
 
@@ -201,7 +195,7 @@
   #
   # ARM Architectural Timer Frequency
   #
-!ifdef $(ARM_BIGLITTLE_TC2)
+!ifdef ARM_BIGLITTLE_TC2
   gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|24000000
 !else
   gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|10000000
@@ -264,7 +258,7 @@
   #
   # Filesystems
   #
-!ifndef $(ARM_BIGLITTLE_TC2)
+!ifndef ARM_BIGLITTLE_TC2
   ArmPkg/Filesystem/SemihostFs/SemihostFs.inf
 !endif
   

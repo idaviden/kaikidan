@@ -1,6 +1,7 @@
 /** @file
 
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
+  Copyright (c) 2011 - 2013, ARM Ltd. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -137,6 +138,43 @@ VOID
 EFIAPI
 PublishArmProcessorTable(
   VOID
+  );
+
+EFI_STATUS
+SetMemoryAttributes (
+  IN EFI_PHYSICAL_ADDRESS      BaseAddress,
+  IN UINT64                    Length,
+  IN UINT64                    Attributes,
+  IN EFI_PHYSICAL_ADDRESS      VirtualMask
+  );
+
+// The ARM Attributes might be defined on 64-bit (case of the long format description table)
+UINT64
+EfiAttributeToArmAttribute (
+  IN UINT64                    EfiAttributes
+  );
+
+EFI_STATUS
+GetMemoryRegion (
+  IN OUT UINTN                   *BaseAddress,
+  OUT    UINTN                   *RegionLength,
+  OUT    UINTN                   *RegionAttributes
+  );
+
+VOID
+GetRootTranslationTableInfo (
+  IN  UINTN    T0SZ,
+  OUT UINTN   *TableLevel,
+  OUT UINTN   *TableEntryCount
+  );
+
+EFI_STATUS
+SetGcdMemorySpaceAttributes (
+  IN EFI_GCD_MEMORY_SPACE_DESCRIPTOR    *MemorySpaceMap,
+  IN UINTN                               NumberOfDescriptors,
+  IN EFI_PHYSICAL_ADDRESS                BaseAddress,
+  IN UINT64                              Length,
+  IN UINT64                              Attributes
   );
 
 extern VIRTUAL_UNCACHED_PAGES_PROTOCOL  gVirtualUncachedPages;

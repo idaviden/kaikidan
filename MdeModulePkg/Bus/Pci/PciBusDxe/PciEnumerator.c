@@ -29,7 +29,6 @@ PciEnumerator (
   IN EFI_HANDLE                    Controller
   )
 {
-  EFI_HANDLE                                        Handle;
   EFI_HANDLE                                        HostBridgeHandle;
   EFI_STATUS                                        Status;
   EFI_PCI_HOST_BRIDGE_RESOURCE_ALLOCATION_PROTOCOL  *PciResAlloc;
@@ -82,7 +81,11 @@ PciEnumerator (
   //
   // Notify the pci bus enumeration is about to begin
   //
-  NotifyPhase (PciResAlloc, EfiPciHostBridgeBeginEnumeration);
+  Status = NotifyPhase (PciResAlloc, EfiPciHostBridgeBeginEnumeration);
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   //
   // Start the bus allocation phase
@@ -105,7 +108,11 @@ PciEnumerator (
   //
   // Notify the pci bus enumeration is about to complete
   //
-  NotifyPhase (PciResAlloc, EfiPciHostBridgeEndEnumeration);
+  Status = NotifyPhase (PciResAlloc, EfiPciHostBridgeEndEnumeration);
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   //
   // Process P2C
@@ -126,9 +133,8 @@ PciEnumerator (
 
   gFullEnumeration = FALSE;
 
-  Handle = NULL;
   Status = gBS->InstallProtocolInterface (
-                  &Handle,
+                  &HostBridgeHandle,
                   &gEfiPciEnumerationCompleteProtocolGuid,
                   EFI_NATIVE_INTERFACE,
                   NULL

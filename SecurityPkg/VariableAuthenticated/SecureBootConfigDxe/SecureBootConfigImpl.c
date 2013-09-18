@@ -48,6 +48,8 @@ HII_VENDOR_DEVICE_PATH          mSecureBootHiiVendorDevicePath = {
 };
 
 
+BOOLEAN mIsEnterSecureBootForm = FALSE;
+
 //
 // OID ASN.1 Value for Hash Algorithms
 //
@@ -399,6 +401,7 @@ EnrollPlatformKey (
   UINTN                           DataSize;
   EFI_SIGNATURE_LIST              *PkCert;
   UINT16*                         FilePostFix;
+  UINTN                           NameLength;
   
   if (Private->FileContext->FileName == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -414,7 +417,11 @@ EnrollPlatformKey (
   //
   // Parse the file's postfix. Only support DER encoded X.509 certificate files.
   //
-  FilePostFix = Private->FileContext->FileName + StrLen (Private->FileContext->FileName) - 4;
+  NameLength = StrLen (Private->FileContext->FileName);
+  if (NameLength <= 4) {
+    return EFI_INVALID_PARAMETER;
+  }
+  FilePostFix = Private->FileContext->FileName + NameLength - 4;
   if (!IsDerEncodeCertificate(FilePostFix)) {
     DEBUG ((EFI_D_ERROR, "Unsupported file type, only DER encoded certificate (%s) is supported.", mSupportX509Suffix));
     return EFI_INVALID_PARAMETER;
@@ -803,6 +810,7 @@ EnrollKeyExchangeKey (
 {
   UINT16*     FilePostFix;
   EFI_STATUS  Status;
+  UINTN       NameLength;
   
   if ((Private->FileContext->FileName == NULL) || (Private->SignatureGUID == NULL)) {
     return EFI_INVALID_PARAMETER;
@@ -817,7 +825,11 @@ EnrollKeyExchangeKey (
   // Parse the file's postfix. Supports DER-encoded X509 certificate, 
   // and .pbk as RSA public key file.
   //
-  FilePostFix = Private->FileContext->FileName + StrLen (Private->FileContext->FileName) - 4;
+  NameLength = StrLen (Private->FileContext->FileName);
+  if (NameLength <= 4) {
+    return EFI_INVALID_PARAMETER;
+  }
+  FilePostFix = Private->FileContext->FileName + NameLength - 4;
   if (IsDerEncodeCertificate(FilePostFix)) {
     return EnrollX509ToKek (Private);
   } else if (CompareMem (FilePostFix, L".pbk",4) == 0) {
@@ -1551,6 +1563,7 @@ EnrollSignatureDatabase (
 {
   UINT16*      FilePostFix;
   EFI_STATUS   Status;
+  UINTN        NameLength;
 
   if ((Private->FileContext->FileName == NULL) || (Private->FileContext->FHandle == NULL) || (Private->SignatureGUID == NULL)) {
     return EFI_INVALID_PARAMETER;
@@ -1564,7 +1577,11 @@ EnrollSignatureDatabase (
   //
   // Parse the file's postfix. 
   //
-  FilePostFix = Private->FileContext->FileName + StrLen (Private->FileContext->FileName) - 4;
+  NameLength = StrLen (Private->FileContext->FileName);
+  if (NameLength <= 4) {
+    return EFI_INVALID_PARAMETER;
+  }
+  FilePostFix = Private->FileContext->FileName + NameLength - 4;
   if (IsDerEncodeCertificate(FilePostFix)) {
     //
     // Supports DER-encoded X509 certificate.
@@ -2392,6 +2409,14 @@ SecureBootRouteConfig (
     return EFI_NOT_FOUND;
   }
 
+  //
+  // Get Configuration from Variable.
+  //
+  SecureBootExtractConfigFromVariable (&IfrNvData);
+
+  //
+  // Map the Configuration to the configuration block.
+  //
   BufferSize = sizeof (SECUREBOOT_CONFIGURATION);
   Status = gHiiConfigRouting->ConfigToBlock (
                                 gHiiConfigRouting,
@@ -2473,6 +2498,25 @@ SecureBootCallback (
     return EFI_INVALID_PARAMETER;
   }
 
+  if (Action == EFI_BROWSER_ACTION_FORM_OPEN) {
+    if (QuestionId == KEY_SECURE_BOOT_MODE) {
+      mIsEnterSecureBootForm = TRUE;
+    }
+
+    return EFI_SUCCESS;
+  }
+  
+  if (Action == EFI_BROWSER_ACTION_RETRIEVE) {
+    Status = EFI_UNSUPPORTED;
+    if (QuestionId == KEY_SECURE_BOOT_MODE) {
+      if (mIsEnterSecureBootForm) {
+        Value->u8 = SECURE_BOOT_MODE_STANDARD;
+        Status = EFI_SUCCESS;
+      }
+    }
+    return Status;
+  }
+  
   if ((Action != EFI_BROWSER_ACTION_CHANGED) &&
       (Action != EFI_BROWSER_ACTION_CHANGING) &&
       (Action != EFI_BROWSER_ACTION_FORM_CLOSE) &&
@@ -2744,19 +2788,7 @@ SecureBootCallback (
       break;
       
     case KEY_SECURE_BOOT_MODE:
-      GetVariable2 (EFI_CUSTOM_MODE_NAME, &gEfiCustomModeEnableGuid, (VOID**)&SecureBootMode, NULL);
-      if (NULL != SecureBootMode) {
-        Status = gRT->SetVariable (                          
-                        EFI_CUSTOM_MODE_NAME,
-                        &gEfiCustomModeEnableGuid,
-                        EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-                        sizeof (UINT8),
-                        &Value->u8
-                        );
-        *ActionRequest = EFI_BROWSER_ACTION_REQUEST_FORM_APPLY;
-        IfrNvData->SecureBootMode = Value->u8;
-        FreePool (SecureBootMode);
-      }        
+      mIsEnterSecureBootForm = FALSE;
       break;
 
     case KEY_SECURE_BOOT_KEK_GUID:

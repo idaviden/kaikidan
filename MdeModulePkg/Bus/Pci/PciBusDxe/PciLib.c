@@ -290,7 +290,6 @@ DumpResourceMap (
   PCI_RESOURCE_NODE                *ChildPMem32Node;
   PCI_RESOURCE_NODE                *ChildMem64Node;
   PCI_RESOURCE_NODE                *ChildPMem64Node;
-  EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *ToText;
   CHAR16                           *Str;
 
   DEBUG ((EFI_D_INFO, "PciBus: Resource Map for "));
@@ -309,19 +308,11 @@ DumpResourceMap (
       Bridge->BusNumber, Bridge->DeviceNumber, Bridge->FunctionNumber
       ));
   } else {
-    Status = gBS->LocateProtocol (
-                    &gEfiDevicePathToTextProtocolGuid,
-                    NULL,
-                    (VOID **) &ToText
-                    );
-    Str = NULL;
-    if (!EFI_ERROR (Status)) {
-      Str = ToText->ConvertDevicePathToText (
-                      DevicePathFromHandle (Bridge->Handle),
-                      FALSE,
-                      FALSE
-                      );
-    }
+    Str = ConvertDevicePathToText (
+            DevicePathFromHandle (Bridge->Handle),
+            FALSE,
+            FALSE
+            );
     DEBUG ((EFI_D_INFO, "Root Bridge %s\n", Str != NULL ? Str : L""));
     if (Str != NULL) {
       FreePool (Str);
@@ -759,7 +750,11 @@ PciHostBridgeResourceAllocator (
   //
   // Notify pci bus driver starts to program the resource
   //
-  NotifyPhase (PciResAlloc, EfiPciHostBridgeSetResources);
+  Status = NotifyPhase (PciResAlloc, EfiPciHostBridgeSetResources);
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   RootBridgeDev     = NULL;
 
@@ -898,9 +893,9 @@ PciHostBridgeResourceAllocator (
   //
   // Notify the resource allocation phase is to end
   //
-  NotifyPhase (PciResAlloc, EfiPciHostBridgeEndResourceAllocation);
+  Status = NotifyPhase (PciResAlloc, EfiPciHostBridgeEndResourceAllocation);
 
-  return EFI_SUCCESS;
+  return Status;
 }
 
 /**
@@ -1443,7 +1438,11 @@ PciHostBridgeEnumerator (
   //
   // Notify the bus allocation phase is about to start
   //
-  NotifyPhase (PciResAlloc, EfiPciHostBridgeBeginBusAllocation);
+  Status = NotifyPhase (PciResAlloc, EfiPciHostBridgeBeginBusAllocation);
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   DEBUG((EFI_D_INFO, "PCI Bus First Scanning\n"));
   RootBridgeHandle = NULL;
@@ -1531,7 +1530,11 @@ PciHostBridgeEnumerator (
     //
     // Notify the bus allocation phase is about to start for the 2nd time
     //
-    NotifyPhase (PciResAlloc, EfiPciHostBridgeBeginBusAllocation);
+    Status = NotifyPhase (PciResAlloc, EfiPciHostBridgeBeginBusAllocation);
+
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
 
     DEBUG((EFI_D_INFO, "PCI Bus Second Scanning\n"));
     RootBridgeHandle = NULL;
@@ -1569,7 +1572,11 @@ PciHostBridgeEnumerator (
   //
   // Notify the resource allocation phase is to start
   //
-  NotifyPhase (PciResAlloc, EfiPciHostBridgeBeginResourceAllocation);
+  Status = NotifyPhase (PciResAlloc, EfiPciHostBridgeBeginResourceAllocation);
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   RootBridgeHandle = NULL;
   while (PciResAlloc->GetNextRootBridge (PciResAlloc, &RootBridgeHandle) == EFI_SUCCESS) {

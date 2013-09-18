@@ -41,9 +41,9 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Guid/AuthenticatedVariableFormat.h>
 #include <Guid/ImageAuthentication.h>
 #include <Guid/SystemNvDataGuid.h>
+#include <Guid/FaultTolerantWrite.h>
 #include <Guid/HardwareErrorVariable.h>
 
-#define VARIABLE_RECLAIM_THRESHOLD (1024)
 #define EFI_VARIABLE_ATTRIBUTES_MASK (EFI_VARIABLE_NON_VOLATILE | \
                                       EFI_VARIABLE_BOOTSERVICE_ACCESS | \
                                       EFI_VARIABLE_RUNTIME_ACCESS | \
@@ -51,6 +51,15 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
                                       EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS | \
                                       EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS | \
                                       EFI_VARIABLE_APPEND_WRITE)
+
+#define VARIABLE_ATTRIBUTE_BS_RT        (EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS)
+#define VARIABLE_ATTRIBUTE_NV_BS_RT     (VARIABLE_ATTRIBUTE_BS_RT | EFI_VARIABLE_NON_VOLATILE)
+#define VARIABLE_ATTRIBUTE_NV_BS_RT_AT  (VARIABLE_ATTRIBUTE_NV_BS_RT | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS)
+
+typedef struct {
+  CHAR16      *Name;
+  UINT32      Attributes;
+} GLOBAL_VARIABLE_ENTRY;
 
 ///
 /// The size of a 3 character ISO639 language code.

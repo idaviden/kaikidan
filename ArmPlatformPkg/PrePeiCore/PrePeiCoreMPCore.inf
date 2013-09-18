@@ -33,6 +33,13 @@
   Arm/Exception.asm        | RVCT
   Arm/Exception.S          | GCC
 
+[Sources.AARCH64]
+  AArch64/ArchPrePeiCore.c
+  AArch64/PrePeiCoreEntryPoint.S   | GCC
+  AArch64/SwitchStack.S            | GCC
+  AArch64/Exception.S              | GCC
+  AArch64/Helper.S                 | GCC
+
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
@@ -63,7 +70,6 @@
   gArmTokenSpaceGuid.PcdFvSize
 
   gArmTokenSpaceGuid.PcdArmPrimaryCore
-  gArmTokenSpaceGuid.PcdGicPrimaryCoreId
 
   gArmPlatformTokenSpaceGuid.PcdCPUCoresStackBase
   gArmPlatformTokenSpaceGuid.PcdCPUCorePrimaryStackSize

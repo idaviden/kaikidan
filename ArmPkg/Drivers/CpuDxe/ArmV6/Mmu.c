@@ -2,18 +2,20 @@
 
 Copyright (c) 2009, Hewlett-Packard Company. All rights reserved.<BR>
 Portions copyright (c) 2010, Apple Inc. All rights reserved.<BR>
+Portions copyright (c) 2013, ARM Ltd. All rights reserved.<BR>
 
-This program and the accompanying materials                          
-are licensed and made available under the terms and conditions of the BSD License         
-which accompanies this distribution.  The full text of the license may be found at        
-http://opensource.org/licenses/bsd-license.php                                            
-                                                                                          
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 
 --*/
 
+#include <Library/MemoryAllocationLib.h>
 #include "CpuDxe.h"
 
 // First Level Descriptors
@@ -145,133 +147,6 @@ PageToGcdAttributes (
   // now process eXectue Never attribute
   if ((PageAttributes & TT_DESCRIPTOR_PAGE_XN_MASK) != 0 ) {
     *GcdAttributes |= EFI_MEMORY_XP;
-  }
-
-  return EFI_SUCCESS;
-}
-
-/**
-  Searches memory descriptors covered by given memory range.
-
-  This function searches into the Gcd Memory Space for descriptors
-  (from StartIndex to EndIndex) that contains the memory range
-  specified by BaseAddress and Length.
-
-  @param  MemorySpaceMap       Gcd Memory Space Map as array.
-  @param  NumberOfDescriptors  Number of descriptors in map.
-  @param  BaseAddress          BaseAddress for the requested range.
-  @param  Length               Length for the requested range.
-  @param  StartIndex           Start index into the Gcd Memory Space Map.
-  @param  EndIndex             End index into the Gcd Memory Space Map.
-
-  @retval EFI_SUCCESS          Search successfully.
-  @retval EFI_NOT_FOUND        The requested descriptors does not exist.
-
-**/
-EFI_STATUS
-SearchGcdMemorySpaces (
-  IN EFI_GCD_MEMORY_SPACE_DESCRIPTOR     *MemorySpaceMap,
-  IN UINTN                               NumberOfDescriptors,
-  IN EFI_PHYSICAL_ADDRESS                BaseAddress,
-  IN UINT64                              Length,
-  OUT UINTN                              *StartIndex,
-  OUT UINTN                              *EndIndex
-  )
-{
-  UINTN           Index;
-
-  *StartIndex = 0;
-  *EndIndex   = 0;
-  for (Index = 0; Index < NumberOfDescriptors; Index++) {
-    if (BaseAddress >= MemorySpaceMap[Index].BaseAddress &&
-        BaseAddress < MemorySpaceMap[Index].BaseAddress + MemorySpaceMap[Index].Length) {
-      *StartIndex = Index;
-    }
-    if (BaseAddress + Length - 1 >= MemorySpaceMap[Index].BaseAddress &&
-        BaseAddress + Length - 1 < MemorySpaceMap[Index].BaseAddress + MemorySpaceMap[Index].Length) {
-      *EndIndex = Index;
-      return EFI_SUCCESS;
-    }
-  }
-  return EFI_NOT_FOUND;
-}
-
-
-/**
-  Sets the attributes for a specified range in Gcd Memory Space Map.
-
-  This function sets the attributes for a specified range in
-  Gcd Memory Space Map.
-
-  @param  MemorySpaceMap       Gcd Memory Space Map as array
-  @param  NumberOfDescriptors  Number of descriptors in map
-  @param  BaseAddress          BaseAddress for the range
-  @param  Length               Length for the range
-  @param  Attributes           Attributes to set
-
-  @retval EFI_SUCCESS          Memory attributes set successfully
-  @retval EFI_NOT_FOUND        The specified range does not exist in Gcd Memory Space
-
-**/
-EFI_STATUS
-SetGcdMemorySpaceAttributes (
-  IN EFI_GCD_MEMORY_SPACE_DESCRIPTOR     *MemorySpaceMap,
-  IN UINTN                               NumberOfDescriptors,
-  IN EFI_PHYSICAL_ADDRESS                BaseAddress,
-  IN UINT64                              Length,
-  IN UINT64                              Attributes
-  )
-{
-  EFI_STATUS            Status;
-  UINTN                 Index;
-  UINTN                 StartIndex;
-  UINTN                 EndIndex;
-  EFI_PHYSICAL_ADDRESS  RegionStart;
-  UINT64                RegionLength;
-
-  //
-  // Get all memory descriptors covered by the memory range
-  //
-  Status = SearchGcdMemorySpaces (
-             MemorySpaceMap,
-             NumberOfDescriptors,
-             BaseAddress,
-             Length,
-             &StartIndex,
-             &EndIndex
-             );
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  //
-  // Go through all related descriptors and set attributes accordingly
-  //
-  for (Index = StartIndex; Index <= EndIndex; Index++) {
-    if (MemorySpaceMap[Index].GcdMemoryType == EfiGcdMemoryTypeNonExistent) {
-      continue;
-    }
-    //
-    // Calculate the start and end address of the overlapping range
-    //
-    if (BaseAddress >= MemorySpaceMap[Index].BaseAddress) {
-      RegionStart = BaseAddress;
-    } else {
-      RegionStart = MemorySpaceMap[Index].BaseAddress;
-    }
-    if (BaseAddress + Length - 1 < MemorySpaceMap[Index].BaseAddress + MemorySpaceMap[Index].Length) {
-      RegionLength = BaseAddress + Length - RegionStart;
-    } else {
-      RegionLength = MemorySpaceMap[Index].BaseAddress + MemorySpaceMap[Index].Length - RegionStart;
-    }
-    //
-    // Set memory attributes according to MTRR attribute and the original attribute of descriptor
-    //
-    gDS->SetMemorySpaceAttributes (
-           RegionStart,
-           RegionLength,
-           (MemorySpaceMap[Index].Attributes & ~EFI_MEMORY_CACHETYPE_MASK) | (MemorySpaceMap[Index].Capabilities & Attributes)
-           );
   }
 
   return EFI_SUCCESS;
@@ -456,6 +331,8 @@ SyncCacheConfig (
     // update GCD with these changes (this will recurse into our own CpuSetMemoryAttributes below which is OK)
     SetGcdMemorySpaceAttributes (MemorySpaceMap, NumberOfDescriptors, NextRegionBase, NextRegionLength, GcdAttributes);
   }
+
+  FreePool (MemorySpaceMap);
 
   return EFI_SUCCESS;
 }
@@ -758,12 +635,7 @@ ConvertSectionToPages (
 
   // Get section attributes and convert to page attributes
   SectionDescriptor = FirstLevelTable[FirstLevelIdx];
-  PageDescriptor = TT_DESCRIPTOR_PAGE_TYPE_PAGE;
-  PageDescriptor |= TT_DESCRIPTOR_CONVERT_TO_PAGE_CACHE_POLICY(SectionDescriptor,0);
-  PageDescriptor |= TT_DESCRIPTOR_CONVERT_TO_PAGE_AP(SectionDescriptor);
-  PageDescriptor |= TT_DESCRIPTOR_CONVERT_TO_PAGE_XN(SectionDescriptor,0);
-  PageDescriptor |= TT_DESCRIPTOR_CONVERT_TO_PAGE_NG(SectionDescriptor);
-  PageDescriptor |= TT_DESCRIPTOR_CONVERT_TO_PAGE_S(SectionDescriptor);
+  PageDescriptor = TT_DESCRIPTOR_PAGE_TYPE_PAGE | ConvertSectionAttributesToPageAttributes (SectionDescriptor, FALSE);
 
   // Allocate a page table for the 4KB entries (we use up a full page even though we only need 1KB)
   Status = gBS->AllocatePages (AllocateAnyPages, EfiBootServicesData, 1, &PageTableAddr);
@@ -825,120 +697,184 @@ SetMemoryAttributes (
   return Status;
 }
 
-
-/**
-  This function modifies the attributes for the memory region specified by BaseAddress and
-  Length from their current attributes to the attributes specified by Attributes.
-
-  @param  This             The EFI_CPU_ARCH_PROTOCOL instance.
-  @param  BaseAddress      The physical address that is the start address of a memory region.
-  @param  Length           The size in bytes of the memory region.
-  @param  Attributes       The bit mask of attributes to set for the memory region.
-
-  @retval EFI_SUCCESS           The attributes were set for the memory region.
-  @retval EFI_ACCESS_DENIED     The attributes for the memory resource range specified by
-                                BaseAddress and Length cannot be modified.
-  @retval EFI_INVALID_PARAMETER Length is zero.
-  @retval EFI_OUT_OF_RESOURCES  There are not enough system resources to modify the attributes of
-                                the memory resource range.
-  @retval EFI_UNSUPPORTED       The processor does not support one or more bytes of the memory
-                                resource range specified by BaseAddress and Length.
-                                The bit mask of attributes is not support for the memory resource
-                                range specified by BaseAddress and Length.
-
-**/
-EFI_STATUS
-EFIAPI
-CpuSetMemoryAttributes (
-  IN EFI_CPU_ARCH_PROTOCOL     *This,
-  IN EFI_PHYSICAL_ADDRESS      BaseAddress,
-  IN UINT64                    Length,
-  IN UINT64                    Attributes
+UINT64
+EfiAttributeToArmAttribute (
+  IN UINT64                    EfiAttributes
   )
 {
-  DEBUG ((EFI_D_PAGE, "SetMemoryAttributes(%lx, %lx, %lx)\n", BaseAddress, Length, Attributes));
-  if ( ((BaseAddress & ~TT_DESCRIPTOR_PAGE_BASE_ADDRESS_MASK) != 0) || ((Length & ~TT_DESCRIPTOR_PAGE_BASE_ADDRESS_MASK) != 0)){
-    // minimum granularity is SIZE_4KB (4KB on ARM)
-    DEBUG ((EFI_D_PAGE, "SetMemoryAttributes(%lx, %lx, %lx): minimum ganularity is SIZE_4KB\n", BaseAddress, Length, Attributes));
-    return EFI_UNSUPPORTED;
+  UINT64 ArmAttributes;
+
+  switch (EfiAttributes & EFI_MEMORY_CACHETYPE_MASK) {
+    case EFI_MEMORY_UC:
+      // Map to strongly ordered
+      ArmAttributes = TT_DESCRIPTOR_SECTION_CACHE_POLICY_STRONGLY_ORDERED; // TEX[2:0] = 0, C=0, B=0
+      break;
+
+    case EFI_MEMORY_WC:
+      // Map to normal non-cachable
+      ArmAttributes = TT_DESCRIPTOR_SECTION_CACHE_POLICY_NON_CACHEABLE; // TEX [2:0]= 001 = 0x2, B=0, C=0
+      break;
+
+    case EFI_MEMORY_WT:
+      // Write through with no-allocate
+      ArmAttributes = TT_DESCRIPTOR_SECTION_CACHE_POLICY_WRITE_THROUGH_NO_ALLOC; // TEX [2:0] = 0, C=1, B=0
+      break;
+
+    case EFI_MEMORY_WB:
+      // Write back (with allocate)
+      ArmAttributes = TT_DESCRIPTOR_SECTION_CACHE_POLICY_WRITE_BACK_ALLOC; // TEX [2:0] = 001, C=1, B=1
+      break;
+
+    case EFI_MEMORY_WP:
+    case EFI_MEMORY_XP:
+    case EFI_MEMORY_RP:
+    case EFI_MEMORY_UCE:
+    default:
+      // Cannot be implemented UEFI definition unclear for ARM
+      // Cause a page fault if these ranges are accessed.
+      ArmAttributes = TT_DESCRIPTOR_SECTION_TYPE_FAULT;
+      DEBUG ((EFI_D_PAGE, "SetMemoryAttributes(): Unsupported attribute %x will page fault on access\n", EfiAttributes));
+      break;
   }
-  
-  return SetMemoryAttributes (BaseAddress, Length, Attributes, 0);
+
+  // Determine protection attributes
+  if (EfiAttributes & EFI_MEMORY_WP) {
+    ArmAttributes |= TT_DESCRIPTOR_SECTION_AP_RO_RO;
+  } else {
+    ArmAttributes |= TT_DESCRIPTOR_SECTION_AP_RW_RW;
+  }
+
+  // Determine eXecute Never attribute
+  if (EfiAttributes & EFI_MEMORY_XP) {
+    ArmAttributes |= TT_DESCRIPTOR_SECTION_XN_MASK;
+  }
+
+  return ArmAttributes;
 }
 
-
-
-//
-// Add a new protocol to support 
-//
-
 EFI_STATUS
-EFIAPI
-CpuConvertPagesToUncachedVirtualAddress (
-  IN  VIRTUAL_UNCACHED_PAGES_PROTOCOL   *This,
-  IN  EFI_PHYSICAL_ADDRESS              Address,
-  IN  UINTN                             Length,
-  IN  EFI_PHYSICAL_ADDRESS              VirtualMask,
-  OUT UINT64                            *Attributes     OPTIONAL
+GetMemoryRegionPage (
+  IN     UINT32                  *PageTable,
+  IN OUT UINTN                   *BaseAddress,
+  OUT    UINTN                   *RegionLength,
+  OUT    UINTN                   *RegionAttributes
   )
 {
-  EFI_STATUS  Status;
-  EFI_GCD_MEMORY_SPACE_DESCRIPTOR GcdDescriptor;
-  
-  
-  if (Attributes != NULL) {
-    Status = gDS->GetMemorySpaceDescriptor (Address, &GcdDescriptor);
-    if (!EFI_ERROR (Status)) {
-      *Attributes = GcdDescriptor.Attributes;
+  UINT32      PageAttributes;
+  UINT32      TableIndex;
+  UINT32      PageDescriptor;
+
+  // Convert the section attributes into page attributes
+  PageAttributes = ConvertSectionAttributesToPageAttributes (*RegionAttributes, 0);
+
+  // Calculate index into first level translation table for start of modification
+  TableIndex = ((*BaseAddress) & TT_DESCRIPTOR_PAGE_INDEX_MASK)  >> TT_DESCRIPTOR_PAGE_BASE_SHIFT;
+  ASSERT (TableIndex < TRANSLATION_TABLE_PAGE_COUNT);
+
+  // Go through the page table to find the end of the section
+  for (; TableIndex < TRANSLATION_TABLE_PAGE_COUNT; TableIndex++) {
+    // Get the section at the given index
+    PageDescriptor = PageTable[TableIndex];
+
+    if ((PageDescriptor & TT_DESCRIPTOR_PAGE_TYPE_MASK) == TT_DESCRIPTOR_PAGE_TYPE_FAULT) {
+      // Case: End of the boundary of the region
+      return EFI_SUCCESS;
+    } else if ((PageDescriptor & TT_DESCRIPTOR_PAGE_TYPE_PAGE) == TT_DESCRIPTOR_PAGE_TYPE_PAGE) {
+      if ((PageDescriptor & TT_DESCRIPTOR_PAGE_ATTRIBUTE_MASK) == PageAttributes) {
+        *RegionLength = *RegionLength + TT_DESCRIPTOR_PAGE_SIZE;
+      } else {
+        // Case: End of the boundary of the region
+        return EFI_SUCCESS;
+      }
+    } else {
+      // We do not support Large Page yet. We return EFI_SUCCESS that means end of the region.
+      ASSERT(0);
+      return EFI_SUCCESS;
     }
   }
 
-  //
-  // Make this address range page fault if accessed. If it is a DMA buffer than this would 
-  // be the PCI address. Code should always use the CPU address, and we will or in VirtualMask
-  // to that address. 
-  //
-  Status = SetMemoryAttributes (Address, Length, EFI_MEMORY_WP, 0);
-  if (!EFI_ERROR (Status)) {
-    Status = SetMemoryAttributes (Address | VirtualMask, Length, EFI_MEMORY_UC, VirtualMask);
-  }
-
-  DEBUG ((DEBUG_INFO | DEBUG_LOAD, "ConvertPagesToUncachedVirtualAddress()\n    Unmapped 0x%08lx Mapped 0x%08lx 0x%x bytes\n", Address, Address | VirtualMask, Length));
-
-  return Status;
+  return EFI_NOT_FOUND;
 }
-
 
 EFI_STATUS
-EFIAPI
-CpuReconvertPages (
-  IN  VIRTUAL_UNCACHED_PAGES_PROTOCOL   *This,
-  IN  EFI_PHYSICAL_ADDRESS              Address,
-  IN  UINTN                             Length,
-  IN  EFI_PHYSICAL_ADDRESS              VirtualMask,
-  IN  UINT64                            Attributes
+GetMemoryRegion (
+  IN OUT UINTN                   *BaseAddress,
+  OUT    UINTN                   *RegionLength,
+  OUT    UINTN                   *RegionAttributes
   )
 {
-  EFI_STATUS      Status;
+  EFI_STATUS                  Status;
+  UINT32                      TableIndex;
+  UINT32                      PageAttributes;
+  UINT32                      PageTableIndex;
+  UINT32                      SectionDescriptor;
+  ARM_FIRST_LEVEL_DESCRIPTOR *FirstLevelTable;
+  UINT32                     *PageTable;
 
-  DEBUG ((DEBUG_INFO | DEBUG_LOAD, "CpuReconvertPages(%lx, %x, %lx, %lx)\n", Address, Length, VirtualMask, Attributes));
-  
-  //
-  // Unmap the alaised Address
-  //
-  Status = SetMemoryAttributes (Address | VirtualMask, Length, EFI_MEMORY_WP, 0);
-  if (!EFI_ERROR (Status)) {
-    //
-    // Restore atttributes
-    //
-    Status = SetMemoryAttributes (Address, Length, Attributes, 0);
+  // Initialize the arguments
+  *RegionLength = 0;
+
+  // Obtain page table base
+  FirstLevelTable = (ARM_FIRST_LEVEL_DESCRIPTOR *)ArmGetTTBR0BaseAddress ();
+
+  // Calculate index into first level translation table for start of modification
+  TableIndex = TT_DESCRIPTOR_SECTION_BASE_ADDRESS (*BaseAddress) >> TT_DESCRIPTOR_SECTION_BASE_SHIFT;
+  ASSERT (TableIndex < TRANSLATION_TABLE_SECTION_COUNT);
+
+  // Get the section at the given index
+  SectionDescriptor = FirstLevelTable[TableIndex];
+
+  // If 'BaseAddress' belongs to the section then round it to the section boundary
+  if (((SectionDescriptor & TT_DESCRIPTOR_SECTION_TYPE_MASK) == TT_DESCRIPTOR_SECTION_TYPE_SECTION) ||
+      ((SectionDescriptor & TT_DESCRIPTOR_SECTION_TYPE_MASK) == TT_DESCRIPTOR_SECTION_TYPE_SUPERSECTION))
+  {
+    *BaseAddress = (*BaseAddress) & TT_DESCRIPTOR_SECTION_BASE_ADDRESS_MASK;
+    *RegionAttributes = SectionDescriptor & TT_DESCRIPTOR_SECTION_ATTRIBUTE_MASK;
+  } else {
+    // Otherwise, we round it to the page boundary
+    *BaseAddress = (*BaseAddress) & TT_DESCRIPTOR_PAGE_BASE_ADDRESS_MASK;
+
+    // Get the attribute at the page table level (Level 2)
+    PageTable = (UINT32*)(SectionDescriptor & TT_DESCRIPTOR_SECTION_PAGETABLE_ADDRESS_MASK);
+
+    // Calculate index into first level translation table for start of modification
+    PageTableIndex = ((*BaseAddress) & TT_DESCRIPTOR_PAGE_INDEX_MASK)  >> TT_DESCRIPTOR_PAGE_BASE_SHIFT;
+    ASSERT (PageTableIndex < TRANSLATION_TABLE_PAGE_COUNT);
+
+    PageAttributes = PageTable[PageTableIndex] & TT_DESCRIPTOR_PAGE_ATTRIBUTE_MASK;
+    *RegionAttributes = TT_DESCRIPTOR_CONVERT_TO_SECTION_CACHE_POLICY (PageAttributes, 0) |
+                        TT_DESCRIPTOR_CONVERT_TO_SECTION_AP (PageAttributes);
   }
-  
-  return Status;
+
+  for (;TableIndex < TRANSLATION_TABLE_SECTION_COUNT; TableIndex++) {
+    // Get the section at the given index
+    SectionDescriptor = FirstLevelTable[TableIndex];
+
+    // If the entry is a level-2 page table then we scan it to find the end of the region
+    if ((SectionDescriptor & TT_DESCRIPTOR_SECTION_TYPE_MASK) == TT_DESCRIPTOR_SECTION_TYPE_PAGE_TABLE) {
+      // Extract the page table location from the descriptor
+      PageTable = (UINT32*)(SectionDescriptor & TT_DESCRIPTOR_SECTION_PAGETABLE_ADDRESS_MASK);
+
+      // Scan the page table to find the end of the region.
+      Status = GetMemoryRegionPage (PageTable, BaseAddress, RegionLength, RegionAttributes);
+
+      // If we have found the end of the region (Status == EFI_SUCCESS) then we exit the for-loop
+      if (Status == EFI_SUCCESS) {
+        break;
+      }
+    } else if (((SectionDescriptor & TT_DESCRIPTOR_SECTION_TYPE_MASK) == TT_DESCRIPTOR_SECTION_TYPE_SECTION) ||
+               ((SectionDescriptor & TT_DESCRIPTOR_SECTION_TYPE_MASK) == TT_DESCRIPTOR_SECTION_TYPE_SUPERSECTION)) {
+      if ((SectionDescriptor & TT_DESCRIPTOR_SECTION_ATTRIBUTE_MASK) != *RegionAttributes) {
+        // If the attributes of the section differ from the one targeted then we exit the loop
+        break;
+      } else {
+        *RegionLength = *RegionLength + TT_DESCRIPTOR_SECTION_SIZE;
+      }
+    } else {
+      // If we are on an invalid section then it means it is the end of our section.
+      break;
+    }
+  }
+
+  return EFI_SUCCESS;
 }
-
-
-VIRTUAL_UNCACHED_PAGES_PROTOCOL  gVirtualUncachedPages = {
-  CpuConvertPagesToUncachedVirtualAddress,
-  CpuReconvertPages
-};

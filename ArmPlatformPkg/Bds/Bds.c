@@ -257,7 +257,9 @@ DefineDefaultBootEntries (
 
       ASSERT (StrCmp ((CHAR16*)PcdGetPtr(PcdDefaultBootDevicePath), DevicePathTxt) == 0);
 
-      FreePool (DevicePathTxt);
+      if (DevicePathTxt != NULL){
+        FreePool (DevicePathTxt);
+      }
     DEBUG_CODE_END();
 
     // Create the entry is the Default values are correct
@@ -267,7 +269,11 @@ DefineDefaultBootEntries (
       if ((BootType == BDS_LOADER_KERNEL_LINUX_ATAG) || (BootType == BDS_LOADER_KERNEL_LINUX_GLOBAL_FDT) || (BootType == BDS_LOADER_KERNEL_LINUX_LOCAL_FDT)) {
         CmdLineSize = AsciiStrSize ((CHAR8*)PcdGetPtr(PcdDefaultBootArgument));
         InitrdPath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdDefaultBootInitrdPath));
-        InitrdSize = GetDevicePathSize (InitrdPath);
+        if (InitrdPath != NULL) {
+          InitrdSize = GetDevicePathSize (InitrdPath);
+        } else {
+          InitrdSize = 0;
+        }
         if (BootType == BDS_LOADER_KERNEL_LINUX_LOCAL_FDT) {
           FdtLocalPath = EfiDevicePathFromTextProtocol->ConvertTextToDevicePath ((CHAR16*)PcdGetPtr(PcdDefaultFdtLocalDevicePath));
           FdtLocalSize = GetDevicePathSize (FdtLocalPath);
@@ -286,8 +292,12 @@ DefineDefaultBootEntries (
           CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize), InitrdPath, InitrdSize);
           CopyMem ((VOID*)((UINTN)(BootArguments + 1) + CmdLineSize + InitrdSize), FdtLocalPath, FdtLocalSize);
         }
-        FreePool (FdtLocalPath);
-        FreePool (InitrdPath);
+        if (FdtLocalPath != NULL ) {
+          FreePool (FdtLocalPath);
+        }
+        if (InitrdPath != NULL ) {
+          FreePool (InitrdPath);
+        }
       } else {
         BootArguments = NULL;
       }
@@ -299,8 +309,12 @@ DefineDefaultBootEntries (
         BootArguments,
         &BdsLoadOption
         );
-      FreePool (BdsLoadOption);
-      FreePool (BootDevicePath);
+      if (BdsLoadOption != NULL){
+        FreePool (BdsLoadOption);
+      }
+      if (BootDevicePath != NULL){
+        FreePool (BootDevicePath);
+      }
     } else {
       Status = EFI_UNSUPPORTED;
     }

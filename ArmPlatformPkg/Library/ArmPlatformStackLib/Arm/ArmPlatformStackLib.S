@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2012, ARM Limited. All rights reserved.
+//  Copyright (c) 2012-2013, ARM Limited. All rights reserved.
 //
 //  This program and the accompanying materials
 //  are licensed and made available under the terms and conditions of the BSD License
@@ -38,12 +38,12 @@ ASM_PFX(ArmPlatformStackSet):
   // Identify Stack
   // Mask for ClusterId|CoreId
   LoadConstantToReg (0xFFFF, r4)
-  and	r1, r1, r4
+  and   r1, r1, r4
   // Is it the Primary Core ?
   LoadConstantToReg (_gPcd_FixedAtBuild_PcdArmPrimaryCore, r4)
-  ldr	r4, [r4]
+  ldr   r4, [r4]
   cmp   r1, r4
-  beq	ASM_PFX(ArmPlatformStackSetPrimary)
+  beq   ASM_PFX(ArmPlatformStackSetPrimary)
   bne   ASM_PFX(ArmPlatformStackSetSecondary)
 
 //VOID
@@ -54,19 +54,19 @@ ASM_PFX(ArmPlatformStackSet):
 //  IN UINTN SecondaryStackSize
 //  );
 ASM_PFX(ArmPlatformStackSetPrimary):
-  mov	r4, lr
+  mov   r4, lr
 
   // Add stack of primary stack to StackBase
-  add	r0, r0, r2
+  add   r0, r0, r2
 
   // Compute SecondaryCoresCount * SecondaryCoreStackSize
   LoadConstantToReg (_gPcd_FixedAtBuild_PcdCoreCount, r1)
-  ldr	r1, [r1]
-  sub	r1, #1
-  mul	r3, r3, r1
+  ldr   r1, [r1]
+  sub   r1, #1
+  mul   r3, r3, r1
 
   // Set Primary Stack ((StackBase + PrimaryStackSize) + (SecondaryCoresCount * SecondaryCoreStackSize))
-  add	sp, r0, r3
+  add   sp, r0, r3
 
   bx    r4
 
@@ -78,29 +78,29 @@ ASM_PFX(ArmPlatformStackSetPrimary):
 //  IN UINTN SecondaryStackSize
 //  );
 ASM_PFX(ArmPlatformStackSetSecondary):
-  mov	r4, lr
+  mov   r4, lr
   mov   sp, r0
 
   // Get Core Position
-  mov	r0, r1
+  mov   r0, r1
   bl    ASM_PFX(ArmPlatformGetCorePosition)
-  mov	r5, r0
+  mov   r5, r0
 
   // Get Primary Core Position
   LoadConstantToReg (_gPcd_FixedAtBuild_PcdArmPrimaryCore, r0)
-  ldr	r0, [r0]
+  ldr   r0, [r0]
   bl    ASM_PFX(ArmPlatformGetCorePosition)
 
   // Get Secondary Core Position. We should get consecutive secondary stack number from 1...(CoreCount-1)
-  cmp	r5, r0
+  cmp   r5, r0
   subhi r5, r5, #1
-  add	r5, r5, #1
+  add   r5, r5, #1
 
   // Compute top of the secondary stack
-  mul	r3, r3, r5
+  mul   r3, r3, r5
 
   // Set stack
-  add	sp, sp, r3
+  add   sp, sp, r3
 
   bx r4
 

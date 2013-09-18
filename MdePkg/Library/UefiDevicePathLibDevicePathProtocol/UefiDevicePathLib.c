@@ -2,7 +2,7 @@
   Library instance that implement UEFI Device Path Library class based on protocol
   gEfiDevicePathUtilitiesProtocolGuid.
 
-  Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -17,6 +17,8 @@
 #include <Uefi.h>
 
 #include <Protocol/DevicePathUtilities.h>
+#include <Protocol/DevicePathToText.h>
+#include <Protocol/DevicePathFromText.h>
 
 #include <Library/DevicePathLib.h>
 #include <Library/DebugLib.h>
@@ -26,7 +28,9 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/PcdLib.h>
 
-EFI_DEVICE_PATH_UTILITIES_PROTOCOL          *mDevicePathUtilities = NULL;
+GLOBAL_REMOVE_IF_UNREFERENCED EFI_DEVICE_PATH_UTILITIES_PROTOCOL *mDevicePathLibDevicePathUtilities = NULL;
+GLOBAL_REMOVE_IF_UNREFERENCED EFI_DEVICE_PATH_TO_TEXT_PROTOCOL   *mDevicePathLibDevicePathToText    = NULL;
+GLOBAL_REMOVE_IF_UNREFERENCED EFI_DEVICE_PATH_FROM_TEXT_PROTOCOL *mDevicePathLibDevicePathFromText  = NULL;
 
 //
 // Template for an end-of-device path node.
@@ -64,11 +68,10 @@ DevicePathLibConstructor (
   Status = gBS->LocateProtocol (
                   &gEfiDevicePathUtilitiesProtocolGuid,
                   NULL,
-                  (VOID**) &mDevicePathUtilities
+                  (VOID**) &mDevicePathLibDevicePathUtilities
                   );
   ASSERT_EFI_ERROR (Status);
-  ASSERT (mDevicePathUtilities != NULL);
-
+  ASSERT (mDevicePathLibDevicePathUtilities != NULL);
   return Status;
 }
 
@@ -382,7 +385,7 @@ GetDevicePathSize (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePath
   )
 {
-  return mDevicePathUtilities->GetDevicePathSize (DevicePath);
+  return mDevicePathLibDevicePathUtilities->GetDevicePathSize (DevicePath);
 }
 
 /**
@@ -408,7 +411,7 @@ DuplicateDevicePath (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePath
   )
 {
-  return mDevicePathUtilities->DuplicateDevicePath (DevicePath);
+  return mDevicePathLibDevicePathUtilities->DuplicateDevicePath (DevicePath);
 }
 
 /**
@@ -442,7 +445,7 @@ AppendDevicePath (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *SecondDevicePath  OPTIONAL
   )
 {
-  return mDevicePathUtilities->AppendDevicePath (FirstDevicePath, SecondDevicePath);
+  return mDevicePathLibDevicePathUtilities->AppendDevicePath (FirstDevicePath, SecondDevicePath);
 }
 
 /**
@@ -480,7 +483,7 @@ AppendDevicePathNode (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePathNode  OPTIONAL
   )
 {
-  return mDevicePathUtilities->AppendDeviceNode (DevicePath, DevicePathNode);
+  return mDevicePathLibDevicePathUtilities->AppendDeviceNode (DevicePath, DevicePathNode);
 }
 
 /**
@@ -513,7 +516,7 @@ AppendDevicePathInstance (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePathInstance OPTIONAL
   )
 {
-  return mDevicePathUtilities->AppendDevicePathInstance (DevicePath, DevicePathInstance);
+  return mDevicePathLibDevicePathUtilities->AppendDevicePathInstance (DevicePath, DevicePathInstance);
 }
 
 /**
@@ -551,7 +554,7 @@ GetNextDevicePathInstance (
   )
 {
   ASSERT (Size != NULL);
-  return mDevicePathUtilities->GetNextDevicePathInstance (DevicePath, Size);
+  return mDevicePathLibDevicePathUtilities->GetNextDevicePathInstance (DevicePath, Size);
 }
 
 /**
@@ -582,7 +585,7 @@ CreateDeviceNode (
   IN UINT16                          NodeLength
   )
 {
-  return mDevicePathUtilities->CreateDeviceNode (NodeType, NodeSubType, NodeLength);
+  return mDevicePathLibDevicePathUtilities->CreateDeviceNode (NodeType, NodeSubType, NodeLength);
 }
 
 /**
@@ -606,7 +609,7 @@ IsDevicePathMultiInstance (
   IN CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePath
   )
 {
-  return mDevicePathUtilities->IsDevicePathMultiInstance (DevicePath);
+  return mDevicePathLibDevicePathUtilities->IsDevicePathMultiInstance (DevicePath);
 }
 
 /**
@@ -698,3 +701,151 @@ FileDevicePath (
 
   return DevicePath;
 }
+
+/**
+  Locate and return the protocol instance identified by the ProtocolGuid.
+
+  @param ProtocolGuid     The GUID of the protocol.
+
+  @return A pointer to the protocol instance or NULL when absent.
+**/
+VOID *
+UefiDevicePathLibLocateProtocol (
+  EFI_GUID                         *ProtocolGuid
+  )
+{
+  EFI_STATUS Status;
+  VOID       *Protocol;
+  Status = gBS->LocateProtocol (
+                  ProtocolGuid,
+                  NULL,
+                  (VOID**) &Protocol
+                  );
+  if (EFI_ERROR (Status)) {
+    return NULL;
+  } else {
+    return Protocol;
+  }
+}
+
+/**
+  Converts a device node to its string representation.
+
+  @param DeviceNode        A Pointer to the device node to be converted.
+  @param DisplayOnly       If DisplayOnly is TRUE, then the shorter text representation
+                           of the display node is used, where applicable. If DisplayOnly
+                           is FALSE, then the longer text representation of the display node
+                           is used.
+  @param AllowShortcuts    If AllowShortcuts is TRUE, then the shortcut forms of text
+                           representation for a device node can be used, where applicable.
+
+  @return A pointer to the allocated text representation of the device node or NULL if DeviceNode
+          is NULL or there was insufficient memory.
+
+**/
+CHAR16 *
+EFIAPI
+ConvertDeviceNodeToText (
+  IN CONST EFI_DEVICE_PATH_PROTOCOL  *DeviceNode,
+  IN BOOLEAN                         DisplayOnly,
+  IN BOOLEAN                         AllowShortcuts
+  )
+{
+  if (mDevicePathLibDevicePathToText == NULL) {
+    mDevicePathLibDevicePathToText = UefiDevicePathLibLocateProtocol (&gEfiDevicePathToTextProtocolGuid);
+  }
+  if (mDevicePathLibDevicePathToText != NULL) {
+    return mDevicePathLibDevicePathToText->ConvertDeviceNodeToText (DeviceNode, DisplayOnly, AllowShortcuts);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+  Converts a device path to its text representation.
+
+  @param DevicePath      A Pointer to the device to be converted.
+  @param DisplayOnly     If DisplayOnly is TRUE, then the shorter text representation
+                         of the display node is used, where applicable. If DisplayOnly
+                         is FALSE, then the longer text representation of the display node
+                         is used.
+  @param AllowShortcuts  If AllowShortcuts is TRUE, then the shortcut forms of text
+                         representation for a device node can be used, where applicable.
+
+  @return A pointer to the allocated text representation of the device path or
+          NULL if DeviceNode is NULL or there was insufficient memory.
+
+**/
+CHAR16 *
+EFIAPI
+ConvertDevicePathToText (
+  IN CONST EFI_DEVICE_PATH_PROTOCOL   *DevicePath,
+  IN BOOLEAN                          DisplayOnly,
+  IN BOOLEAN                          AllowShortcuts
+  )
+{
+  if (mDevicePathLibDevicePathToText == NULL) {
+    mDevicePathLibDevicePathToText = UefiDevicePathLibLocateProtocol (&gEfiDevicePathToTextProtocolGuid);
+  }
+  if (mDevicePathLibDevicePathToText != NULL) {
+    return mDevicePathLibDevicePathToText->ConvertDevicePathToText (DevicePath, DisplayOnly, AllowShortcuts);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+  Convert text to the binary representation of a device node.
+
+  @param TextDeviceNode  TextDeviceNode points to the text representation of a device
+                         node. Conversion starts with the first character and continues
+                         until the first non-device node character.
+
+  @return A pointer to the EFI device node or NULL if TextDeviceNode is NULL or there was
+          insufficient memory or text unsupported.
+
+**/
+EFI_DEVICE_PATH_PROTOCOL *
+EFIAPI
+ConvertTextToDeviceNode (
+  IN CONST CHAR16 *TextDeviceNode
+  )
+{
+  if (mDevicePathLibDevicePathFromText == NULL) {
+    mDevicePathLibDevicePathFromText = UefiDevicePathLibLocateProtocol (&gEfiDevicePathFromTextProtocolGuid);
+  }
+  if (mDevicePathLibDevicePathFromText != NULL) {
+    return mDevicePathLibDevicePathFromText->ConvertTextToDeviceNode (TextDeviceNode);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+  Convert text to the binary representation of a device path.
+
+
+  @param TextDevicePath  TextDevicePath points to the text representation of a device
+                         path. Conversion starts with the first character and continues
+                         until the first non-device node character.
+
+  @return A pointer to the allocated device path or NULL if TextDeviceNode is NULL or
+          there was insufficient memory.
+
+**/
+EFI_DEVICE_PATH_PROTOCOL *
+EFIAPI
+ConvertTextToDevicePath (
+  IN CONST CHAR16 *TextDevicePath
+  )
+{
+  if (mDevicePathLibDevicePathFromText == NULL) {
+    mDevicePathLibDevicePathFromText = UefiDevicePathLibLocateProtocol (&gEfiDevicePathFromTextProtocolGuid);
+  }
+  if (mDevicePathLibDevicePathFromText != NULL) {
+    return mDevicePathLibDevicePathFromText->ConvertTextToDevicePath (TextDevicePath);
+  } else {
+    return NULL;
+  }
+}
+
