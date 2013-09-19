@@ -1,6 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+*  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 *
 *  This program and the accompanying materials
 *  are licensed and made available under the terms and conditions of the BSD License
@@ -111,12 +111,8 @@ PrePiMain (
           ((FixedPcdGet32 (PcdFdBaseAddress) >= FixedPcdGet32 (PcdSystemMemoryBase)) &&
            ((UINT32)(FixedPcdGet32 (PcdFdBaseAddress) + FixedPcdGet32 (PcdFdSize)) <= (UINT32)(FixedPcdGet32 (PcdSystemMemoryBase) + FixedPcdGet32 (PcdSystemMemorySize)))));
 
-  // Enable program flow prediction, if supported.
-  ArmEnableBranchPrediction ();
-
-  if (FixedPcdGet32(PcdVFPEnabled)) {
-    ArmEnableVFP();
-  }
+  // Initialize the architecture specific bits
+  ArchInitialize ();
 
   // Initialize the Serial Port
   SerialPortInitialize ();
@@ -226,16 +222,13 @@ CEntryPoint (
     StartTimeStamp = 0;
   }
 
-  // Clean Data cache
-  ArmCleanInvalidateDataCache ();
-
+  // Data Cache enabled on Primary core when MMU is enabled.
+  ArmDisableDataCache ();
+  // Invalidate Data cache
+  ArmInvalidateDataCache ();
   // Invalidate instruction cache
   ArmInvalidateInstructionCache ();
-
-  //TODO:Drain Write Buffer
-
-  // Enable Instruction & Data caches
-  ArmEnableDataCache ();
+  // Enable Instruction Caches on all cores.
   ArmEnableInstructionCache ();
 
   // Define the Global Variable region when we are not running in XIP

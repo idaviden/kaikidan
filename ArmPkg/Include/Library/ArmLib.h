@@ -18,10 +18,16 @@
 
 #include <Uefi/UefiBaseType.h>
 
-#ifdef ARM_CPU_ARMv6
-#include <Chipset/ARM1176JZ-S.h>
+#ifdef MDE_CPU_ARM
+  #ifdef ARM_CPU_ARMv6
+    #include <Chipset/ARM1176JZ-S.h>
+  #else
+    #include <Chipset/ArmV7.h>
+  #endif
+#elif defined(MDE_CPU_AARCH64)
+  #include <Chipset/AArch64.h>
 #else
-#include <Chipset/ArmV7.h>
+ #error "Unknown chipset."
 #endif
 
 typedef enum {
@@ -382,11 +388,11 @@ ArmGetTTBR0BaseAddress (
   VOID
   );
 
-VOID
+RETURN_STATUS
 EFIAPI
 ArmConfigureMmu (
   IN  ARM_MEMORY_REGION_DESCRIPTOR  *MemoryTable,
-  OUT VOID                          **TranslationTableBase OPTIONAL,
+  OUT VOID                         **TranslationTableBase OPTIONAL,
   OUT UINTN                         *TranslationTableSize  OPTIONAL
   );
   
@@ -501,6 +507,7 @@ ArmCallWFE (
 VOID
 EFIAPI
 ArmCallWFI (
+
   VOID
   );
 
@@ -526,18 +533,6 @@ VOID
 EFIAPI
 ArmEnableVFP (
   VOID
-  );
-
-UINT32
-EFIAPI
-ArmReadNsacr (
-  VOID
-  );
-
-VOID
-EFIAPI
-ArmWriteNsacr (
-  IN  UINT32   SetWayFormat
   );
 
 UINT32

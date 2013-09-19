@@ -1,6 +1,6 @@
 /** @file
 *
-*  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
+*  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 *  
 *  This program and the accompanying materials                          
 *  are licensed and made available under the terms and conditions of the BSD License         
@@ -139,8 +139,8 @@
 #define TT_DESCRIPTOR_CONVERT_TO_PAGE_NG(Desc)                  ((((Desc) & TT_DESCRIPTOR_SECTION_NG_MASK) >> 6) & TT_DESCRIPTOR_PAGE_NG_MASK)
 #define TT_DESCRIPTOR_CONVERT_TO_PAGE_S(Desc)                  ((((Desc) & TT_DESCRIPTOR_SECTION_S_MASK) >> 6) & TT_DESCRIPTOR_PAGE_S_MASK)
 #define TT_DESCRIPTOR_CONVERT_TO_PAGE_XN(Desc,IsLargePage)      ((IsLargePage)? \
-                                                                    ((((Desc) & TT_DESCRIPTOR_SECTION_XN_MASK) >> 4) & TT_DESCRIPTOR_LARGEPAGE_XN_MASK):    \
-                                                                    ((((Desc) & TT_DESCRIPTOR_SECTION_XN_MASK) << 11) & TT_DESCRIPTOR_PAGE_XN_MASK))
+                                                                    ((((Desc) & TT_DESCRIPTOR_SECTION_XN_MASK) << 11) & TT_DESCRIPTOR_LARGEPAGE_XN_MASK):    \
+                                                                    ((((Desc) & TT_DESCRIPTOR_SECTION_XN_MASK) >> 4) & TT_DESCRIPTOR_PAGE_XN_MASK))
 #define TT_DESCRIPTOR_CONVERT_TO_PAGE_CACHE_POLICY(Desc,IsLargePage)      (IsLargePage? \
                                                                     (((Desc) & TT_DESCRIPTOR_SECTION_CACHE_POLICY_MASK) & TT_DESCRIPTOR_LARGEPAGE_CACHE_POLICY_MASK): \
                                                                     (((((Desc) & (0x3 << 12)) >> 6) | (Desc & (0x3 << 2)))))
@@ -151,6 +151,13 @@
                                                                     (((Desc) & TT_DESCRIPTOR_LARGEPAGE_CACHE_POLICY_MASK) & TT_DESCRIPTOR_SECTION_CACHE_POLICY_MASK): \
                                                                     (((((Desc) & (0x3 << 6)) << 6) | (Desc & (0x3 << 2)))))
 
+#define TT_DESCRIPTOR_SECTION_ATTRIBUTE_MASK                (TT_DESCRIPTOR_SECTION_NS_MASK | TT_DESCRIPTOR_SECTION_NG_MASK | \
+                                                             TT_DESCRIPTOR_SECTION_S_MASK | TT_DESCRIPTOR_SECTION_AP_MASK | \
+                                                             TT_DESCRIPTOR_SECTION_XN_MASK | TT_DESCRIPTOR_SECTION_CACHE_POLICY_MASK)
+
+#define TT_DESCRIPTOR_PAGE_ATTRIBUTE_MASK                   (TT_DESCRIPTOR_PAGE_NG_MASK | TT_DESCRIPTOR_PAGE_S_MASK | \
+                                                             TT_DESCRIPTOR_PAGE_AP_MASK | TT_DESCRIPTOR_PAGE_XN_MASK | \
+                                                             TT_DESCRIPTOR_PAGE_CACHE_POLICY_MASK)
 
 #define TT_DESCRIPTOR_SECTION_DOMAIN_MASK                       (0x0FUL << 5)
 #define TT_DESCRIPTOR_SECTION_DOMAIN(a)                         (((a) & 0x0FUL) << 5)
@@ -214,5 +221,11 @@
                                                         TT_DESCRIPTOR_PAGE_S_NOT_SHARED                                                   | \
                                                         TT_DESCRIPTOR_PAGE_AP_RW_RW                                                       | \
                                                         TT_DESCRIPTOR_PAGE_CACHE_POLICY_NON_CACHEABLE)
+
+UINT32
+ConvertSectionAttributesToPageAttributes (
+  IN UINT32   SectionAttributes,
+  IN BOOLEAN  IsLargePage
+  );
 
 #endif

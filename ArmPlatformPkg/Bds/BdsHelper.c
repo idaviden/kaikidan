@@ -29,10 +29,10 @@ EditHIInputStr (
   // The command line must be at least one character long
   ASSERT (MaxCmdLine > 0);
 
-  Print (CmdLine);
-
   // Ensure the last character of the buffer is the NULL character
   CmdLine[MaxCmdLine - 1] = '\0';
+
+  Print (CmdLine);
 
   // To prevent a buffer overflow, we only allow to enter (MaxCmdLine-1) characters
   for (CmdLineIndex = StrLen (CmdLine); CmdLineIndex < MaxCmdLine; ) {
@@ -205,10 +205,8 @@ HasFilePathEfiExtension (
   IN CHAR16* FilePath
   )
 {
-  if (StrCmp (FilePath + (StrSize(FilePath)/sizeof(CHAR16)) - 5, L".EFI") == 0)
-    return 1;
-
-  return (StrCmp (FilePath + (StrSize(FilePath)/sizeof(CHAR16)) - 5, L".efi") == 0);
+  return (StrCmp (FilePath + (StrSize (FilePath) / sizeof (CHAR16)) - 5, L".EFI") == 0) ||
+         (StrCmp (FilePath + (StrSize (FilePath) / sizeof (CHAR16)) - 5, L".efi") == 0);
 }
 
 // Return the last non end-type Device Path Node from a Device Path

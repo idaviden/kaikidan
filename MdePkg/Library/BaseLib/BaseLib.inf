@@ -3,6 +3,7 @@
 #
 #  Copyright (c) 2007 - 2010, Intel Corporation. All rights reserved.<BR>
 #  Portions copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
+#  Portions copyright (c) 2011 - 2013, ARM Ltd. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -23,7 +24,7 @@
   LIBRARY_CLASS                  = BaseLib 
 
 #
-#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC ARM
+#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC ARM AARCH64
 #
 
 [Sources]
@@ -467,6 +468,7 @@
   Arm/GetInterruptsState.asm | RVCT
   Arm/CpuPause.asm           | RVCT
   Arm/CpuBreakpoint.asm      | RVCT
+  Arm/MemoryFence.asm        | RVCT
  
   Arm/Math64.S                  | GCC
   Arm/SwitchStack.S             | GCC
@@ -475,6 +477,20 @@
   Arm/GetInterruptsState.S      | GCC
   Arm/SetJumpLongJump.S         | GCC
   Arm/CpuBreakpoint.S           | GCC
+  Arm/MemoryFence.S             | GCC
+
+[Sources.AARCH64]
+  Arm/InternalSwitchStack.c
+  Arm/Unaligned.c
+  Math64.c
+
+  AArch64/MemoryFence.S             | GCC
+  AArch64/SwitchStack.S             | GCC
+  AArch64/EnableInterrupts.S        | GCC
+  AArch64/DisableInterrupts.S       | GCC
+  AArch64/GetInterruptsState.S      | GCC
+  AArch64/SetJumpLongJump.S         | GCC
+  AArch64/CpuBreakpoint.S           | GCC
 
 [Packages]
   MdePkg/MdePkg.dec

@@ -2,12 +2,12 @@
                                  OVERVIEW
 ============================================================================
 The binaries of ShellBinPkg are generated with ShellPkg project and built with 
-BaseTools Package (r13224). The binaries are built with no debug information 
+BaseTools Package (r14400). The binaries are built with no debug information 
 by building with "RELEASE" target.
 
 The following steps can help to re-generate these binaries for customization:
 1. Check out EDK II to $(WORKSPACE) 
-(svn https://edk2.svn.sourceforge.net/svnroot/edk2/trunk/edk2).
+(svn https://svn.code.sf.net/p/edk2/code/trunk/edk2).
 
 2. Under $(WORKSPACE) directory (i.e. c:\EdkII),
    To generate Shell, execute:

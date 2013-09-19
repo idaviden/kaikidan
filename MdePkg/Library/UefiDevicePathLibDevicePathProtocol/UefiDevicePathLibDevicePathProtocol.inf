@@ -22,7 +22,7 @@
   FILE_GUID                      = 050EB8C6-C12E-4b86-892B-40985E8B3137
   MODULE_TYPE                    = UEFI_DRIVER
   VERSION_STRING                 = 1.0
-  LIBRARY_CLASS                  = DevicePathLib|DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SAL_DRIVER DXE_SMM_DRIVER UEFI_APPLICATION UEFI_DRIVER 
+  LIBRARY_CLASS                  = DevicePathLib|DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SAL_DRIVER DXE_SMM_DRIVER UEFI_APPLICATION UEFI_DRIVER SMM_CORE
 
   CONSTRUCTOR                    = DevicePathLibConstructor
 
@@ -49,6 +49,8 @@
 [Protocols]
   gEfiDevicePathProtocolGuid                    ## CONSUMES
   gEfiDevicePathUtilitiesProtocolGuid           ## CONSUMES
+  gEfiDevicePathToTextProtocolGuid              ## CONSUMES
+  gEfiDevicePathFromTextProtocolGuid            ## CONSUMES
 
 [Pcd]
   gEfiMdePkgTokenSpaceGuid.PcdMaximumDevicePathNodeCount

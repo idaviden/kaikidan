@@ -1,11 +1,11 @@
 /** @file
   Include file that supports UEFI.
 
-  This include file must contain things defined in the UEFI 2.3 specification.
-  If a code construct is defined in the UEFI 2.3 specification it must be included
+  This include file must contain things defined in the UEFI 2.4 specification.
+  If a code construct is defined in the UEFI 2.4 specification it must be included
   by this include file.
 
-Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under 
 the terms and conditions of the BSD License that accompanies this distribution.  
 The full text of the license may be found at
@@ -662,22 +662,30 @@ EFI_STATUS
                                  then EFI_INVALID_PARAMETER is returned.
   @param  VendorGuid             A unique identifier for the vendor.
   @param  Attributes             Attributes bitmask to set for the variable.
-  @param  DataSize               The size in bytes of the Data buffer. A size of zero causes the
-                                 variable to be deleted.
+  @param  DataSize               The size in bytes of the Data buffer. Unless the EFI_VARIABLE_APPEND_WRITE, 
+                                 EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS, or 
+                                 EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS attribute is set, a size of zero 
+                                 causes the variable to be deleted. When the EFI_VARIABLE_APPEND_WRITE attribute is 
+                                 set, then a SetVariable() call with a DataSize of zero will not cause any change to 
+                                 the variable value (the timestamp associated with the variable may be updated however 
+                                 even if no new data value is provided,see the description of the 
+                                 EFI_VARIABLE_AUTHENTICATION_2 descriptor below. In this case the DataSize will not 
+                                 be zero since the EFI_VARIABLE_AUTHENTICATION_2 descriptor will be populated). 
   @param  Data                   The contents for the variable.
 
   @retval EFI_SUCCESS            The firmware has successfully stored the variable and its data as
                                  defined by the Attributes.
-  @retval EFI_INVALID_PARAMETER  An invalid combination of attribute bits was supplied, or the
+  @retval EFI_INVALID_PARAMETER  An invalid combination of attribute bits, name, and GUID was supplied, or the
                                  DataSize exceeds the maximum allowed.
   @retval EFI_INVALID_PARAMETER  VariableName is an empty string.
   @retval EFI_OUT_OF_RESOURCES   Not enough storage is available to hold the variable and its data.
   @retval EFI_DEVICE_ERROR       The variable could not be retrieved due to a hardware error.
   @retval EFI_WRITE_PROTECTED    The variable in question is read-only.
   @retval EFI_WRITE_PROTECTED    The variable in question cannot be deleted.
-  @retval EFI_SECURITY_VIOLATION The variable could not be written due to EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS
-                                 set but the AuthInfo does NOT pass the validation check carried out
-                                 by the firmware.
+  @retval EFI_SECURITY_VIOLATION The variable could not be written due to EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS 
+                                 or EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACESS being set, but the AuthInfo 
+                                 does NOT pass the validation check carried out by the firmware.
+  
   @retval EFI_NOT_FOUND          The variable trying to be updated or deleted was not found.
 
 **/
@@ -987,7 +995,15 @@ typedef enum {
   /// state.  If the system does not support this reset type, then when the system
   /// is rebooted, it should exhibit the EfiResetCold attributes.
   ///
-  EfiResetShutdown
+  EfiResetShutdown,
+  ///
+  /// Used to induce a system-wide reset. The exact type of the reset is defined by
+  /// the EFI_GUID that follows the Null-terminated Unicode string passed into
+  /// ResetData. If the platform does not recognize the EFI_GUID in ResetData the 
+  /// platform must pick a supported reset type to perform. The platform may
+  /// optionally log the parameters from any non-normal reset that occurs.
+  ///
+  EfiResetPlatformSpecific
 } EFI_RESET_TYPE;
 
 /**
@@ -1148,6 +1164,8 @@ EFI_STATUS
   @retval EFI_OUT_OF_RESOURCES  There was not enough memory in pool to install all the protocols.
   @retval EFI_ALREADY_STARTED   A Device Path Protocol instance was passed in that is already present in
                                 the handle database.
+  @retval EFI_INVALID_PARAMETER Handle is NULL.
+  @retval EFI_INVALID_PARAMETER Protocol is already installed on the handle specified by Handle.
 
 **/
 typedef
@@ -1732,6 +1750,7 @@ EFI_STATUS
 // EFI Runtime Services Table
 //
 #define EFI_SYSTEM_TABLE_SIGNATURE      SIGNATURE_64 ('I','B','I',' ','S','Y','S','T')
+#define EFI_2_40_SYSTEM_TABLE_REVISION  ((2 << 16) | (40))
 #define EFI_2_31_SYSTEM_TABLE_REVISION  ((2 << 16) | (31))
 #define EFI_2_30_SYSTEM_TABLE_REVISION  ((2 << 16) | (30))
 #define EFI_2_20_SYSTEM_TABLE_REVISION  ((2 << 16) | (20))
@@ -2083,6 +2102,7 @@ typedef struct {
 #define EFI_REMOVABLE_MEDIA_FILE_NAME_IA64    L"\\EFI\\BOOT\\BOOTIA64.EFI"
 #define EFI_REMOVABLE_MEDIA_FILE_NAME_X64     L"\\EFI\\BOOT\\BOOTX64.EFI"
 #define EFI_REMOVABLE_MEDIA_FILE_NAME_ARM     L"\\EFI\\BOOT\\BOOTARM.EFI"
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_AARCH64 L"\\EFI\\BOOT\\BOOTAA64.EFI"
 
 #if   defined (MDE_CPU_IA32)
   #define EFI_REMOVABLE_MEDIA_FILE_NAME   EFI_REMOVABLE_MEDIA_FILE_NAME_IA32
@@ -2093,6 +2113,8 @@ typedef struct {
 #elif defined (MDE_CPU_EBC)
 #elif defined (MDE_CPU_ARM)
   #define EFI_REMOVABLE_MEDIA_FILE_NAME   EFI_REMOVABLE_MEDIA_FILE_NAME_ARM
+#elif defined (MDE_CPU_AARCH64)
+  #define EFI_REMOVABLE_MEDIA_FILE_NAME   EFI_REMOVABLE_MEDIA_FILE_NAME_AARCH64
 #else
   #error Unknown Processor Type
 #endif

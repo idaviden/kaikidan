@@ -5,7 +5,7 @@
 # It also provides the definitions(including PPIs/PROTOCOLs/GUIDs) of
 # EFI1.10/UEFI2.3.1/PI1.2 and some Industry Standards.
 #
-# Copyright (c) 2007 - 2012, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2007 - 2013, Intel Corporation. All rights reserved.<BR>
 # Portions copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
 #
 # This program and the accompanying materials are licensed and made available under
@@ -43,6 +43,9 @@
 
 [Includes.ARM]
   Include/Arm
+
+[Includes.AARCH64]
+  Include/AArch64
 
 [LibraryClasses]
   ##  @libraryclass  Provides most usb APIs to support the Hid requests defined in Usb Hid 1.1 spec
@@ -683,6 +686,13 @@
   ## Include/Ppi/PiPcd.h
   gEfiPeiPcdPpiGuid                  = { 0x1f34d25, 0x4de2, 0x23ad, { 0x3f, 0xf3, 0x36, 0x35, 0x3f, 0xf3, 0x23, 0xf1 } }
 
+  #
+  # PPIs defined in PI 1.3.
+  #
+  
+  ## Include/Ppi/I2cMaster.h
+  gEfiPeiI2cMasterPpiGuid            = { 0xb3bfab9b, 0x9f9c, 0x4e8b, { 0xad, 0x37, 0x7f, 0x8c, 0x51, 0xfc, 0x62, 0x80 }}
+
 [Protocols]
   #
   # Protocols defined in PI1.0.
@@ -904,6 +914,25 @@
 
   ## Include/Protocol/SmmEndOfDxe.h
   gEfiSmmEndOfDxeProtocolGuid = { 0x24e70042, 0xd5c5, 0x4260, { 0x8c, 0x39, 0xa, 0xd3, 0xaa, 0x32, 0xe9, 0x3d }}
+
+  #
+  # Protocols defined in PI 1.3.
+  #
+
+  ## Include/Protocol/I2cMaster.h
+  gEfiI2cMasterProtocolGuid = { 0xcd72881f, 0x45b5, 0x4feb, { 0x98, 0xc8, 0x31, 0x3d, 0xa8, 0x11, 0x74, 0x62 }}
+
+  ## Include/Protocol/I2cIo.h
+  gEfiI2cIoProtocolGuid = { 0xb60a3e6b, 0x18c4, 0x46e5, { 0xa2, 0x9a, 0xc9, 0xa1, 0x06, 0x65, 0xa2, 0x8e }}
+
+  ## Include/Protocol/I2cEnumerate.h
+  gEfiI2cEnumerateProtocolGuid = { 0xda8cd7c4, 0x1c00, 0x49e2, { 0x80, 0x3e, 0x52, 0x14, 0xe7, 0x01, 0x89, 0x4c }}
+
+  ## Include/Protocol/I2cHost.h
+  gEfiI2cHostProtocolGuid = { 0xa5aab9e3, 0xc727, 0x48cd, { 0x8b, 0xbf, 0x42, 0x72, 0x33, 0x85, 0x49, 0x48 }}
+
+  ## Include/Protocol/I2cBusConfigurationManagement.h
+  gEfiI2cBusConfigurationManagementProtocolGuid = { 0x55b71fb5, 0x17c6, 0x410e, { 0xb5, 0xbd, 0x5f, 0xa2, 0xe3, 0xd4, 0x46, 0x6b }}
 
   #
   # Protocols defined in UEFI2.1/UEFI2.0/EFI1.1
@@ -1261,10 +1290,16 @@
   gEfiBlockIo2ProtocolGuid             = { 0xa77b2472, 0xe282, 0x4e9f, {0xa2, 0x45, 0xc2, 0xc0, 0xe2, 0x7b, 0xbc, 0xc1 }}
 
   ## Include/Protocol/StorageSecurityCommand.h
-  gEfiStorageSecurityCommandProtocolGuid    = { 0xc88b0b6d, 0x0dfc, 0x49a7, {0x9c, 0xb4, 0x49, 0x7, 0x4b, 0x4c, 0x3a, 0x78 }}
+  gEfiStorageSecurityCommandProtocolGuid = { 0xc88b0b6d, 0x0dfc, 0x49a7, {0x9c, 0xb4, 0x49, 0x7, 0x4b, 0x4c, 0x3a, 0x78 }}
 
   ## Include/Protocol/UserCredential2.h
-  gEfiUserCredential2ProtocolGuid       = { 0xe98adb03, 0xb8b9, 0x4af8, {0xba, 0x20, 0x26, 0xe9, 0x11, 0x4c, 0xbc, 0xe5 }}
+  gEfiUserCredential2ProtocolGuid      = { 0xe98adb03, 0xb8b9, 0x4af8, {0xba, 0x20, 0x26, 0xe9, 0x11, 0x4c, 0xbc, 0xe5 }}
+
+  #
+  # Protocols defined in UEFI2.4
+  #
+  ## Include/Protocol/DiskIo2.h
+  gEfiDiskIo2ProtocolGuid              = { 0x151c8eae, 0x7f2c, 0x472c, { 0x9e, 0x54, 0x98, 0x28, 0x19, 0x4f, 0x6a, 0x88 }}
 
 [PcdsFeatureFlag]
   ## If TRUE, the component name protocol will not be installed.
