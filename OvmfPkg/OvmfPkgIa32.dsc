@@ -408,6 +408,7 @@
   }
 
   OvmfPkg/BlockMmioToBlockIoDxe/BlockIo.inf
+  OvmfPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
   OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
   OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
   OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf {
