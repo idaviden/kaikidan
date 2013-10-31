@@ -128,6 +128,12 @@ READ_LOCK_STATUS   = TRUE
 
   INF MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
+  #^M
+  # SMBIOS Support^M
+  #^M
+  INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf^M
+  INF ArmPkg/Drivers/UpdateSmbios/UpdateSmbios.inf^M
+
   #
   # Multiple Console IO support
   #
