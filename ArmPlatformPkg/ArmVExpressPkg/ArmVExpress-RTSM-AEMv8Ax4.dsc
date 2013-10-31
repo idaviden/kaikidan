@@ -237,6 +237,13 @@
 
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
+  #^M
+  # SMBIOS Support^M
+  #^M
+  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf^M
+  ArmPkg/Drivers/UpdateSmbios/UpdateSmbios.inf^M
+
+
   ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
