@@ -86,9 +86,9 @@ READ_LOCK_STATUS   = TRUE
   #^M
   # ACPI Support^M
   #^M
-  INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf^M
-  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf^M
-  INF RuleOverride=ACPITABLE ArmPkg/Drivers/AcpiTables/rtsm_ve-v7/AcpiTables.inf^M
+  INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  INF RuleOverride=ACPITABLE ArmPkg/Drivers/AcpiTables/rtsm_ve-v7/AcpiTables.inf
  
   #
   # Multiple Console IO support
