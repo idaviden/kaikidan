@@ -218,8 +218,8 @@
   #^M
   # SMBIOS Support^M
   #^M
-  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf^M
-  ArmPkg/Drivers/UpdateSmbios/UpdateSmbios.inf^M
+  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  ArmPkg/Drivers/UpdateSmbios/UpdateSmbios.inf
 
   ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
