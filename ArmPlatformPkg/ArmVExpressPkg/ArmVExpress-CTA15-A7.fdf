@@ -272,10 +272,10 @@ READ_LOCK_STATUS   = TRUE
     VERSION   STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
   }
 
-[Rule.Common.USER_DEFINED.ACPITABLE]^M
-  FILE FREEFORM = $(NAMED_GUID) {^M
-    RAW       ACPI                    |.acpi^M
-    RAW       ASL                     |.aml^M
-    UI        STRING="$(MODULE_NAME)" Optional^M
- }^M
+[Rule.Common.USER_DEFINED.ACPITABLE]
+  FILE FREEFORM = $(NAMED_GUID) {
+    RAW       ACPI                    |.acpi
+    RAW       ASL                     |.aml
+    UI        STRING="$(MODULE_NAME)" Optional
+ }
   
