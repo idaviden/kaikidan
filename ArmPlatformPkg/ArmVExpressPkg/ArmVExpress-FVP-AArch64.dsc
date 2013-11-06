@@ -243,9 +243,9 @@
   #^M
   # ACPI Support^M
   #^M
-  MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf^M
-  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf^M
-  ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf^M
+  MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf
 
   ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
