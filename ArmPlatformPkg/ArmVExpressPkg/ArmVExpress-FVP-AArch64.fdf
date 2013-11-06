@@ -141,9 +141,9 @@ READ_LOCK_STATUS   = TRUE
   #
   # ACPI Support^M
   #^M
-  INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf^M
-  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf^M
-  INF RuleOverride=ACPITABLE ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf^M
+  INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  INF RuleOverride=ACPITABLE ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf
 
   #
   # Multiple Console IO support
@@ -329,10 +329,10 @@ READ_LOCK_STATUS   = TRUE
     VERSION   STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
   }
 
-[Rule.Common.USER_DEFINED.ACPITABLE]^M
-  FILE FREEFORM = $(NAMED_GUID) {^M
-    RAW       ACPI                    |.acpi^M
-    RAW       ASL                     |.aml^M
-    UI        STRING="$(MODULE_NAME)" Optional^M
-  }^M
+[Rule.Common.USER_DEFINED.ACPITABLE]
+  FILE FREEFORM = $(NAMED_GUID) {
+    RAW       ACPI                    |.acpi
+    RAW       ASL                     |.aml
+    UI        STRING="$(MODULE_NAME)" Optional
+  }
 
