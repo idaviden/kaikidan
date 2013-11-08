@@ -1,6 +1,7 @@
 /** @file
   The implementation for ifcommand shell command.
 
+  Copyright (c) 2013 Hewlett-Packard Development Company, L.P.
   Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials
@@ -1249,7 +1250,7 @@ IfconfigSetNicAddr (
   
   if (StringNoCaseCompare(&Temp, &DhcpTemp) == 0) {
     //
-    // Validate the parameter for DHCP, two valid forms: eth0 DHCP and eth0 DHCP perment
+    // Validate the parameter for DHCP, two valid forms: eth0 DHCP and eth0 DHCP permanent
     //
     if ((Argc != 2) && (Argc!= 3)) {
       ShellPrintHiiEx(-1, -1, NULL,STRING_TOKEN (STR_GEN_PROBLEM_VAL), gShellNetwork1HiiHandle, Temp);
@@ -1274,7 +1275,7 @@ IfconfigSetNicAddr (
     }
 
     if ((OldConfig != NULL) && (OldConfig->Source == IP4_CONFIG_SOURCE_DHCP) &&
-        (OldConfig->Perment == Permanent)) {
+        (OldConfig->Permanent == Permanent)) {
 
       ShellPrintHiiEx(-1, -1, NULL,STRING_TOKEN (STR_IFCONFIG_INTERFACE_CONFIGURED), gShellNetwork1HiiHandle, Info->Name);
       ShellStatus = SHELL_ALREADY_STARTED;
@@ -1285,7 +1286,7 @@ IfconfigSetNicAddr (
   } else if (StringNoCaseCompare(&Temp, &StaticTemp) == 0) {
     //
     // validate the parameter, two forms: eth0 static IP NETMASK GATEWAY and
-    // eth0 static IP NETMASK GATEWAY perment
+    // eth0 static IP NETMASK GATEWAY permanent 
     //
     if ((Argc != 5) && (Argc != 6)) {
       ShellPrintHiiEx(-1, -1, NULL,STRING_TOKEN (STR_GEN_PROBLEM_VAL), gShellNetwork1HiiHandle, Temp);
@@ -1388,7 +1389,7 @@ IfconfigSetNicAddr (
   }
 
   CopyMem (&Config->NicAddr, &Info->NicAddress, sizeof (NIC_ADDR));
-  Config->Perment = Permanent;
+  Config->Permanent = Permanent;
 
   //
   // Use HII service to set NIC address
@@ -1474,9 +1475,9 @@ IfconfigShowNicInfo (
     }
 
     ShellPrintHiiEx(-1, -1, NULL,
-      STRING_TOKEN (STR_IFCONFIG_PERMENT_STATUS),
+      STRING_TOKEN (STR_IFCONFIG_PERMANENT_STATUS),
       gShellNetwork1HiiHandle,
-      (NicInfo->ConfigInfo->Perment? L"TRUE":L"FALSE")
+      (NicInfo->ConfigInfo->Permanent? L"TRUE":L"FALSE")
       );
 
     Ip4Config = &NicInfo->ConfigInfo->Ip4Info;
@@ -1716,8 +1717,8 @@ ShellCommandRunIfconfig (
 
     //
     // The correct command line arguments for setting address are:
-    // IfConfig -s eth0 DHCP [perment]
-    // IfConfig -s eth0 static ip netmask gateway [perment]
+    // IfConfig -s eth0 DHCP [permanent]
+    // IfConfig -s eth0 static ip netmask gateway [permanent]
     //
     if (Item == NULL || (CountSubItems(Item) < 2) || (CountSubItems(Item) > 6) || (CountSubItems(Item) == 4)) {
       ShellPrintHiiEx(-1, -1, NULL,STRING_TOKEN (STR_GEN_PROBLEM_VAL), gShellNetwork1HiiHandle, L"-s");

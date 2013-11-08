@@ -133,7 +133,6 @@ InitializeDisplay (
   // Setup all the relevant mode information
   Instance->Gop.Mode->SizeOfInfo      = sizeof(EFI_GRAPHICS_OUTPUT_MODE_INFORMATION);
   Instance->Gop.Mode->FrameBufferBase = VramBaseAddress;
-  Instance->Gop.Mode->FrameBufferSize = VramSize;
 
   // Set the flag before changing the mode, to avoid infinite loops
   mDisplayInitialized = TRUE;
@@ -225,7 +224,13 @@ LcdGraphicsExitBootServicesEvent (
   IN VOID       *Context
   )
 {
-	//TODO: Implement me
+  // By default, this PCD is FALSE. But if a platform starts a predefined OS that
+  // does not use a framebuffer then we might want to disable the display controller
+  // to avoid to display corrupted information on the screen.
+  if (FeaturePcdGet (PcdGopDisableOnExitBootServices)) {
+    // Turn-off the Display controller
+    LcdShutdown ();
+  }
 }
 
 /***************************************
@@ -291,7 +296,8 @@ LcdGraphicsSetMode (
 {
 	EFI_STATUS                      Status               = EFI_SUCCESS;
 	EFI_GRAPHICS_OUTPUT_BLT_PIXEL   FillColour;
-	LCD_INSTANCE* Instance;
+	LCD_INSTANCE*                   Instance;
+	LCD_BPP                         Bpp;
 
 	Instance = LCD_INSTANCE_FROM_GOP_THIS (This);
 
@@ -320,6 +326,14 @@ LcdGraphicsSetMode (
 	// Update the UEFI mode information
 	This->Mode->Mode = ModeNumber;
 	LcdPlatformQueryMode (ModeNumber,&Instance->ModeInfo);
+	Status = LcdPlatformGetBpp(ModeNumber, &Bpp);
+	if (EFI_ERROR(Status)) {
+	  DEBUG ((DEBUG_ERROR, "LcdGraphicsSetMode: ERROR - Couldn't get bytes per pixel, status: %r\n", Status));
+	  goto EXIT;
+	}
+	This->Mode->FrameBufferSize =  Instance->ModeInfo.VerticalResolution
+	                             * Instance->ModeInfo.PixelsPerScanLine
+	                             * GetBytesPerPixel(Bpp);
 
   // Set the hardware to the new mode
 	Status = LcdSetMode (ModeNumber);

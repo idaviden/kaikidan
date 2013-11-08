@@ -339,6 +339,7 @@ PublishAcpiTable (
 
 
   ASSERT (Table->OemTableId == SIGNATURE_64 ('T', 'c', 'g', 'T', 'a', 'b', 'l', 'e'));
+  CopyMem (Table->OemId, PcdGetPtr (PcdAcpiDefaultOemId), sizeof (Table->OemId) );
   mTcgNvs = AssignOpRegion (Table, SIGNATURE_32 ('T', 'N', 'V', 'S'), (UINT16) sizeof (TCG_NVS));
   ASSERT (mTcgNvs != NULL);
 
@@ -384,6 +385,11 @@ InitializeTcgSmm (
   EFI_SMM_SW_DISPATCH2_PROTOCOL  *SwDispatch;
   EFI_SMM_SW_REGISTER_CONTEXT    SwContext;
   EFI_HANDLE                     SwHandle;
+
+  if (!CompareGuid (PcdGetPtr(PcdTpmInstanceGuid), &gEfiTpmDeviceInstanceTpm12Guid)){
+    DEBUG ((EFI_D_ERROR, "No TPM12 instance required!\n"));
+    return EFI_UNSUPPORTED;
+  }
 
   Status = PublishAcpiTable ();
   ASSERT_EFI_ERROR (Status);

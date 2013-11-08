@@ -653,7 +653,7 @@ PeiDispatcher (
   PeimFileHandle = NULL;
   EntryPoint     = 0;
 
-  if ((Private->PeiMemoryInstalled) && (Private->HobList.HandoffInformationTable->BootMode != BOOT_ON_S3_RESUME)) {
+  if ((Private->PeiMemoryInstalled) && (Private->HobList.HandoffInformationTable->BootMode != BOOT_ON_S3_RESUME || PcdGetBool (PcdShadowPeimOnS3Boot))) {
     //
     // Once real memory is available, shadow the RegisterForShadow modules. And meanwhile
     // update the modules' status from PEIM_STATE_REGISITER_FOR_SHADOW to PEIM_STATE_DONE.
@@ -764,8 +764,14 @@ PeiDispatcher (
               //
               // For Fv type file, Produce new FV PPI and FV hob
               //
-              Status = ProcessFvFile (&Private->Fv[FvCount], PeimFileHandle);
-              AuthenticationState = 0;
+              Status = ProcessFvFile (Private, &Private->Fv[FvCount], PeimFileHandle);
+              if (Status == EFI_SUCCESS) {
+                //
+                // PEIM_STATE_NOT_DISPATCHED move to PEIM_STATE_DISPATCHED
+                //
+                Private->Fv[FvCount].PeimState[PeimCount]++;
+                Private->PeimDispatchOnThisPass = TRUE;
+              }
             } else {
               //
               // For PEIM driver, Load its entry point
@@ -777,50 +783,45 @@ PeiDispatcher (
                          &EntryPoint,
                          &AuthenticationState
                          );
-            }
-
-            if (Status == EFI_SUCCESS) {
-              //
-              // The PEIM has its dependencies satisfied, and its entry point
-              // has been found, so invoke it.
-              //
-              PERF_START (PeimFileHandle, "PEIM", NULL, 0);
-
-              ExtendedData.Handle = (EFI_HANDLE)PeimFileHandle;
-
-              REPORT_STATUS_CODE_WITH_EXTENDED_DATA (
-                EFI_PROGRESS_CODE,
-                (EFI_SOFTWARE_PEI_CORE | EFI_SW_PC_INIT_BEGIN),
-                (VOID *)(&ExtendedData),
-                sizeof (ExtendedData)
-                );
-
-              Status = VerifyPeim (Private, CoreFvHandle->FvHandle, PeimFileHandle);
-              if (Status != EFI_SECURITY_VIOLATION && (AuthenticationState == 0)) {
+              if (Status == EFI_SUCCESS) {
                 //
-                // PEIM_STATE_NOT_DISPATCHED move to PEIM_STATE_DISPATCHED
+                // The PEIM has its dependencies satisfied, and its entry point
+                // has been found, so invoke it.
                 //
-                Private->Fv[FvCount].PeimState[PeimCount]++;
+                PERF_START (PeimFileHandle, "PEIM", NULL, 0);
 
-                if (FvFileInfo.FileType != EFI_FV_FILETYPE_FIRMWARE_VOLUME_IMAGE) {
+                ExtendedData.Handle = (EFI_HANDLE)PeimFileHandle;
+
+                REPORT_STATUS_CODE_WITH_EXTENDED_DATA (
+                  EFI_PROGRESS_CODE,
+                  (EFI_SOFTWARE_PEI_CORE | EFI_SW_PC_INIT_BEGIN),
+                  (VOID *)(&ExtendedData),
+                  sizeof (ExtendedData)
+                  );
+
+                Status = VerifyPeim (Private, CoreFvHandle->FvHandle, PeimFileHandle, AuthenticationState);
+                if (Status != EFI_SECURITY_VIOLATION) {
+                  //
+                  // PEIM_STATE_NOT_DISPATCHED move to PEIM_STATE_DISPATCHED
+                  //
+                  Private->Fv[FvCount].PeimState[PeimCount]++;
                   //
                   // Call the PEIM entry point for PEIM driver
                   //
                   PeimEntryPoint = (EFI_PEIM_ENTRY_POINT2)(UINTN)EntryPoint;
                   PeimEntryPoint (PeimFileHandle, (const EFI_PEI_SERVICES **) PeiServices);
+                  Private->PeimDispatchOnThisPass = TRUE;
                 }
 
-                Private->PeimDispatchOnThisPass = TRUE;
+                REPORT_STATUS_CODE_WITH_EXTENDED_DATA (
+                  EFI_PROGRESS_CODE,
+                  (EFI_SOFTWARE_PEI_CORE | EFI_SW_PC_INIT_END),
+                  (VOID *)(&ExtendedData),
+                  sizeof (ExtendedData)
+                  );
+                PERF_END (PeimFileHandle, "PEIM", NULL, 0);
+
               }
-
-              REPORT_STATUS_CODE_WITH_EXTENDED_DATA (
-                EFI_PROGRESS_CODE,
-                (EFI_SOFTWARE_PEI_CORE | EFI_SW_PC_INIT_END),
-                (VOID *)(&ExtendedData),
-                sizeof (ExtendedData)
-                );
-              PERF_END (PeimFileHandle, "PEIM", NULL, 0);
-
             }
 
             if (Private->SwitchStackSignal) {
@@ -972,7 +973,7 @@ PeiDispatcher (
             ProcessNotifyList (Private);
 
             if ((Private->PeiMemoryInstalled) && (Private->Fv[FvCount].PeimState[PeimCount] == PEIM_STATE_REGISITER_FOR_SHADOW) &&   \
-                (Private->HobList.HandoffInformationTable->BootMode != BOOT_ON_S3_RESUME)) {
+                (Private->HobList.HandoffInformationTable->BootMode != BOOT_ON_S3_RESUME || PcdGetBool (PcdShadowPeimOnS3Boot))) {
               //
               // If memory is availble we shadow images by default for performance reasons.
               // We call the entry point a 2nd time so the module knows it's shadowed.
