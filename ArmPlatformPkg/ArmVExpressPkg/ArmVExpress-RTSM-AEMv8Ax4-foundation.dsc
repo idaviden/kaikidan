@@ -220,7 +220,7 @@
   #
   MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
-  ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a-foundation/AcpiTables.inf
+  ArmPkg/Drivers/AcpiTables/foundation-v8/AcpiTables.inf
 
   ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
