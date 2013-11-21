@@ -174,7 +174,9 @@ READ_LOCK_STATUS   = TRUE
   INF ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
   INF ArmPkg/Drivers/TimerDxe/TimerDxe.inf
   INF ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
+!ifndef ARM_FOUNDATION_FVP
   INF ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/PL111LcdGraphicsOutputDxe.inf
+!endif
   INF ArmPlatformPkg/Drivers/SP805WatchdogDxe/SP805WatchdogDxe.inf
 
   #
@@ -190,11 +192,13 @@ READ_LOCK_STATUS   = TRUE
   INF FatBinPkg/EnhancedFatDxe/Fat.inf
   INF MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
 
+!ifndef ARM_FOUNDATION_FVP
   #
   # Multimedia Card Interface
   #
   INF EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
   INF ArmPlatformPkg/Drivers/PL180MciDxe/PL180MciDxe.inf
+!endif
 
   #
   # UEFI application (Shell Embedded Boot Loader)
