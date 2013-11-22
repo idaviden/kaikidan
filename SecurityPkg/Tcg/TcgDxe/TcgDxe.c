@@ -8,7 +8,7 @@ buffer overflow, integer overflow.
 
 TcgDxePassThroughToTpm() will receive untrusted input and do basic validation.
 
-Copyright (c) 2005 - 2012, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2005 - 2013, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials 
 are licensed and made available under the terms and conditions of the BSD License 
 which accompanies this distribution.  The full text of the license may be found at 
@@ -24,6 +24,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <IndustryStandard/Acpi.h>
 #include <IndustryStandard/PeImage.h>
 #include <IndustryStandard/SmBios.h>
+#include <IndustryStandard/TcpaAcpi.h>
 
 #include <Guid/GlobalVariable.h>
 #include <Guid/SmBios.h>
@@ -31,6 +32,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Guid/TcgEventHob.h>
 #include <Guid/EventGroup.h>
 #include <Guid/EventExitBootServiceFailed.h>
+#include <Guid/TpmInstance.h>
+
 #include <Protocol/DevicePath.h>
 #include <Protocol/TcgService.h>
 #include <Protocol/AcpiTable.h>
@@ -52,38 +55,6 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include "TpmComm.h"
 
 #define  EFI_TCG_LOG_AREA_SIZE        0x10000
-
-#pragma pack (1)
-
-typedef struct _EFI_TCG_CLIENT_ACPI_TABLE {
-  EFI_ACPI_DESCRIPTION_HEADER       Header;
-  UINT16                            PlatformClass;
-  UINT32                            Laml;
-  EFI_PHYSICAL_ADDRESS              Lasa;
-} EFI_TCG_CLIENT_ACPI_TABLE;
-
-typedef struct _EFI_TCG_SERVER_ACPI_TABLE {
-  EFI_ACPI_DESCRIPTION_HEADER             Header;
-  UINT16                                  PlatformClass;
-  UINT16                                  Reserved0;
-  UINT64                                  Laml;
-  EFI_PHYSICAL_ADDRESS                    Lasa;
-  UINT16                                  SpecRev;
-  UINT8                                   DeviceFlags;
-  UINT8                                   InterruptFlags;
-  UINT8                                   Gpe;
-  UINT8                                   Reserved1[3];
-  UINT32                                  GlobalSysInt;
-  EFI_ACPI_3_0_GENERIC_ADDRESS_STRUCTURE  BaseAddress;
-  UINT32                                  Reserved2;
-  EFI_ACPI_3_0_GENERIC_ADDRESS_STRUCTURE  ConfigAddress;
-  UINT8                                   PciSegNum;
-  UINT8                                   PciBusNum;
-  UINT8                                   PciDevNum;
-  UINT8                                   PciFuncNum;
-} EFI_TCG_SERVER_ACPI_TABLE;
-
-#pragma pack ()
 
 #define TCG_DXE_DATA_FROM_THIS(this)  \
   BASE_CR (this, TCG_DXE_DATA, TcgProtocol)
@@ -1177,6 +1148,7 @@ InstallAcpiTable (
   EFI_STATUS                        Status;
   EFI_ACPI_TABLE_PROTOCOL           *AcpiTable;
   UINT8                             Checksum;
+  UINT64                            OemTableId;
 
   Status = gBS->LocateProtocol (&gEfiAcpiTableProtocolGuid, NULL, (VOID **)&AcpiTable);
   if (EFI_ERROR (Status)) {
@@ -1184,7 +1156,12 @@ InstallAcpiTable (
   }
 
   if (PcdGet8 (PcdTpmPlatformClass) == TCG_PLATFORM_TYPE_CLIENT) {
- 
+    CopyMem (mTcgClientAcpiTemplate.Header.OemId, PcdGetPtr (PcdAcpiDefaultOemId), sizeof (mTcgClientAcpiTemplate.Header.OemId));
+    OemTableId = PcdGet64 (PcdAcpiDefaultOemTableId);
+    CopyMem (&mTcgClientAcpiTemplate.Header.OemTableId, &OemTableId, sizeof (UINT64));
+    mTcgClientAcpiTemplate.Header.OemRevision      = PcdGet32 (PcdAcpiDefaultOemRevision);
+    mTcgClientAcpiTemplate.Header.CreatorId        = PcdGet32 (PcdAcpiDefaultCreatorId);
+    mTcgClientAcpiTemplate.Header.CreatorRevision  = PcdGet32 (PcdAcpiDefaultCreatorRevision);
     //
     // The ACPI table must be checksumed before calling the InstallAcpiTable() 
     // service of the ACPI table protocol to install it.
@@ -1199,7 +1176,12 @@ InstallAcpiTable (
                             &TableKey
                             );
   } else {
-
+    CopyMem (mTcgServerAcpiTemplate.Header.OemId, PcdGetPtr (PcdAcpiDefaultOemId), sizeof (mTcgServerAcpiTemplate.Header.OemId));
+    OemTableId = PcdGet64 (PcdAcpiDefaultOemTableId);
+    CopyMem (&mTcgServerAcpiTemplate.Header.OemTableId, &OemTableId, sizeof (UINT64));
+    mTcgServerAcpiTemplate.Header.OemRevision      = PcdGet32 (PcdAcpiDefaultOemRevision);
+    mTcgServerAcpiTemplate.Header.CreatorId        = PcdGet32 (PcdAcpiDefaultCreatorId);
+    mTcgServerAcpiTemplate.Header.CreatorRevision  = PcdGet32 (PcdAcpiDefaultCreatorRevision);
     //
     // The ACPI table must be checksumed before calling the InstallAcpiTable() 
     // service of the ACPI table protocol to install it.
@@ -1332,6 +1314,11 @@ DriverEntry (
   EFI_STATUS                        Status;
   EFI_EVENT                         Event;
   VOID                              *Registration;
+
+  if (!CompareGuid (PcdGetPtr(PcdTpmInstanceGuid), &gEfiTpmDeviceInstanceTpm12Guid)){
+    DEBUG ((EFI_D_ERROR, "No TPM12 instance required!\n"));
+    return EFI_UNSUPPORTED;
+  }
 
   mTcgDxeData.TpmHandle = (TIS_TPM_HANDLE)(UINTN)TPM_BASE_ADDRESS;
   Status = TisPcRequestUseTpm (mTcgDxeData.TpmHandle);

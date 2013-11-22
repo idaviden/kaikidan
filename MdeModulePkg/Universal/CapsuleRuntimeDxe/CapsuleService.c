@@ -4,7 +4,7 @@
   It installs the Capsule Architectural Protocol defined in PI1.0a to signify 
   the capsule runtime services are ready.
 
-Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -19,6 +19,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 #include <Protocol/Capsule.h>
 #include <Guid/CapsuleVendor.h>
+#include <Guid/FmpCapsule.h>
 
 #include <Library/DebugLib.h>
 #include <Library/PcdLib.h>
@@ -29,7 +30,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/UefiRuntimeLib.h>
 #include <Library/BaseLib.h>
 #include <Library/PrintLib.h>
-
+#include <Library/BaseMemoryLib.h>
 //
 // Handle for the installation of Capsule Architecture Protocol.
 //
@@ -73,6 +74,11 @@ SaveLongModeContext (
   @retval EFI_INVALID_PARAMETER CapsuleCount is Zero.
   @retval EFI_INVALID_PARAMETER For across reset capsule image, ScatterGatherList is NULL.
   @retval EFI_UNSUPPORTED       CapsuleImage is not recognized by the firmware.
+  @retval EFI_OUT_OF_RESOURCES  When ExitBootServices() has been previously called this error indicates the capsule 
+                                is compatible with this platform but is not capable of being submitted or processed 
+                                in runtime. The caller may resubmit the capsule prior to ExitBootServices().
+  @retval EFI_OUT_OF_RESOURCES  When ExitBootServices() has not been previously called then this error indicates 
+                                the capsule is compatible with this platform but there are insufficient resources to process.
 
 **/
 EFI_STATUS
@@ -119,12 +125,23 @@ UpdateCapsule (
     if ((CapsuleHeader->Flags & (CAPSULE_FLAGS_PERSIST_ACROSS_RESET | CAPSULE_FLAGS_INITIATE_RESET)) == CAPSULE_FLAGS_INITIATE_RESET) {
       return EFI_INVALID_PARAMETER;
     }
+
+    //
+    // Check FMP capsule flag 
+    //
+    if (CompareGuid(&CapsuleHeader->CapsuleGuid, &gEfiFmpCapsuleGuid)
+     && (CapsuleHeader->Flags & CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE) != 0 ) {
+       return EFI_INVALID_PARAMETER;
+    }
+
     //
     // Check Capsule image without populate flag by firmware support capsule function  
     //
-    if (((CapsuleHeader->Flags & CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE) == 0) && 
-        (SupportCapsuleImage (CapsuleHeader) != EFI_SUCCESS)) {
-      return EFI_UNSUPPORTED;
+    if ((CapsuleHeader->Flags & CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE) == 0) {
+      Status = SupportCapsuleImage (CapsuleHeader);
+      if (EFI_ERROR(Status)) {
+        return Status;
+      }
     }
   }
 
@@ -140,7 +157,7 @@ UpdateCapsule (
     //
     if ((CapsuleHeader->Flags & CAPSULE_FLAGS_PERSIST_ACROSS_RESET) == 0) {
       if (EfiAtRuntime ()) { 
-        Status = EFI_UNSUPPORTED;
+        Status = EFI_OUT_OF_RESOURCES;
       } else {
         Status = ProcessCapsuleImage(CapsuleHeader);
       }
@@ -245,6 +262,7 @@ QueryCapsuleCapabilities (
   OUT EFI_RESET_TYPE       *ResetType
   )
 {
+  EFI_STATUS                Status;
   UINTN                     ArrayNumber;
   EFI_CAPSULE_HEADER        *CapsuleHeader;
   BOOLEAN                   NeedReset;
@@ -282,12 +300,23 @@ QueryCapsuleCapabilities (
     if ((CapsuleHeader->Flags & (CAPSULE_FLAGS_PERSIST_ACROSS_RESET | CAPSULE_FLAGS_INITIATE_RESET)) == CAPSULE_FLAGS_INITIATE_RESET) {
       return EFI_INVALID_PARAMETER;
     }
+
+    //
+    // Check FMP capsule flag 
+    //
+    if (CompareGuid(&CapsuleHeader->CapsuleGuid, &gEfiFmpCapsuleGuid)
+     && (CapsuleHeader->Flags & CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE) != 0 ) {
+       return EFI_INVALID_PARAMETER;
+    }
+
     //
     // Check Capsule image without populate flag is supported by firmware
     //
-    if (((CapsuleHeader->Flags & CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE) == 0) && 
-        (SupportCapsuleImage (CapsuleHeader) != EFI_SUCCESS)) {
-      return EFI_UNSUPPORTED;
+    if ((CapsuleHeader->Flags & CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE) == 0) {
+      Status = SupportCapsuleImage (CapsuleHeader);
+      if (EFI_ERROR(Status)) {
+        return Status;
+      }
     }
   }
 
@@ -301,7 +330,7 @@ QueryCapsuleCapabilities (
       break;
     }
   }
-  
+
   if (NeedReset) {
     //
     //Check if the platform supports update capsule across a system reset

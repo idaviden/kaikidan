@@ -40,7 +40,9 @@
 
   ArmPlatformSysConfigLib|ArmPlatformPkg/ArmVExpressPkg/Library/ArmVExpressSysConfigLib/ArmVExpressSysConfigLib.inf
   NorFlashPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/NorFlashArmVExpressLib/NorFlashArmVExpressLib.inf
+!ifndef ARM_FOUNDATION_FVP
   LcdPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/PL111LcdArmVExpressLib/PL111LcdArmVExpressLib.inf
+!endif
 
   TimerLib|ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
 
@@ -131,18 +133,28 @@
   ## PL031 RealTimeClock
   gArmPlatformTokenSpaceGuid.PcdPL031RtcBase|0x1C170000
 
+!ifndef ARM_FOUNDATION_FVP
   ## PL111 Versatile Express Motherboard controller
   gArmPlatformTokenSpaceGuid.PcdPL111LcdBase|0x1C1F0000
 
   ## PL180 MMC/SD card controller
   gArmPlatformTokenSpaceGuid.PcdPL180SysMciRegAddress|0x1C010048
   gArmPlatformTokenSpaceGuid.PcdPL180MciBaseAddress|0x1C050000
+!endif
 
   #
-  # ARM PL390 General Interrupt Controller
+  # ARM General Interrupt Controller
   #
+!ifdef ARM_FVP_LEGACY_GICV2_LOCATION
+  gArmTokenSpaceGuid.PcdGicDistributorBase|0x2C001000
+  gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C002000
+!else
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x2f000000
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C000000
+!endif
+
+  # Ethernet (SMSC 91C111)
+  gArmPlatformTokenSpaceGuid.PcdLan91xDxeBaseAddress|0x1A000000
 
   #
   # ARM OS Loader
@@ -156,7 +168,7 @@
   gArmPlatformTokenSpaceGuid.PcdDefaultBootDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/Image"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0 earlyprintk=pl011,0x1c090000 debug user_debug=31 loglevel=9 root=/dev/vda2"
 !endif
-  gArmPlatformTokenSpaceGuid.PcdDefaultFdtLocalDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/fvp-base-gicv2-psci.dtb"
+  gArmPlatformTokenSpaceGuid.PcdDefaultFdtLocalDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/fdt.dtb"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootType|3
   gArmPlatformTokenSpaceGuid.PcdFdtDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/fdt.dtb"
 
@@ -240,10 +252,19 @@
 
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
+  #^M
+  # ACPI Support^M
+  #^M
+  MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf
+
   ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
+!ifndef ARM_FOUNDATION_FVP
   ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/PL111LcdGraphicsOutputDxe.inf
+!endif
   ArmPlatformPkg/Drivers/SP805WatchdogDxe/SP805WatchdogDxe.inf
 
   #
@@ -251,11 +272,13 @@
   #
   ArmPkg/Filesystem/SemihostFs/SemihostFs.inf
 
+!ifndef ARM_FOUNDATION_FVP
   #
   # Multimedia Card Interface
   #
   EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
   ArmPlatformPkg/Drivers/PL180MciDxe/PL180MciDxe.inf
+!endif
 
   #
   # FAT filesystem + GPT/MBR partitioning

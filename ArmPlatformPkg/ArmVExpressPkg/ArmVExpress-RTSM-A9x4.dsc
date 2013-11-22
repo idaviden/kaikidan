@@ -155,6 +155,7 @@
 
   # Ethernet (SMSC 91C111)
   gArmPlatformTokenSpaceGuid.PcdLan91xDxeBaseAddress|0x1A000000
+
   #
   # ARM OS Loader
   #
@@ -255,6 +256,13 @@
   EmbeddedPkg/SerialDxe/SerialDxe.inf
 
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
+
+  #
+  # ACPI Support
+  #
+  MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  ArmPkg/Drivers/AcpiTables/rtsm_ve-v7/AcpiTables.inf
 
   ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf

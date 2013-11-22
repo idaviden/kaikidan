@@ -36,6 +36,8 @@ UINT8    mPubKeyStore[MAX_KEYDB_SIZE];
 UINT32   mPubKeyNumber;
 UINT8    mCertDbStore[MAX_CERTDB_SIZE];
 UINT32   mPlatformMode;
+UINT8    mVendorKeyState;
+
 EFI_GUID mSignatureSupport[] = {EFI_CERT_SHA1_GUID, EFI_CERT_SHA256_GUID, EFI_CERT_RSA2048_GUID, EFI_CERT_X509_GUID};
 //
 // Public Exponent of RSA Key.
@@ -255,7 +257,7 @@ AutenticatedVariableServiceInitialize (
   }
   
   //
-  // Create "SetupMode" varable with BS+RT attribute set.
+  // Create "SetupMode" variable with BS+RT attribute set.
   //
   FindVariable (EFI_SETUP_MODE_NAME, &gEfiGlobalVariableGuid, &Variable, &mVariableModuleGlobal->VariableGlobal, FALSE);
   if (PkVariable.CurrPtr == NULL) {
@@ -279,7 +281,7 @@ AutenticatedVariableServiceInitialize (
   }
   
   //
-  // Create "SignatureSupport" varable with BS+RT attribute set.
+  // Create "SignatureSupport" variable with BS+RT attribute set.
   //
   FindVariable (EFI_SIGNATURE_SUPPORT_NAME, &gEfiGlobalVariableGuid, &Variable, &mVariableModuleGlobal->VariableGlobal, FALSE);
   Status  = UpdateVariable (
@@ -328,7 +330,7 @@ AutenticatedVariableServiceInitialize (
   }
 
   //
-  // Create "SecureBoot" varable with BS+RT attribute set.
+  // Create "SecureBoot" variable with BS+RT attribute set.
   //
   if (SecureBootEnable == SECURE_BOOT_ENABLE && mPlatformMode == USER_MODE) {
     SecureBootMode = SECURE_BOOT_MODE_ENABLE;
@@ -408,6 +410,54 @@ AutenticatedVariableServiceInitialize (
       return Status;
     }
   }  
+
+  //
+  // Check "VendorKeysNv" variable's existence and create "VendorKeys" variable accordingly.
+  //
+  FindVariable (EFI_VENDOR_KEYS_NV_VARIABLE_NAME, &gEfiVendorKeysNvGuid, &Variable, &mVariableModuleGlobal->VariableGlobal, FALSE);
+  if (Variable.CurrPtr != NULL) {
+    mVendorKeyState = *(GetVariableDataPtr (Variable.CurrPtr));
+  } else {
+    //
+    // "VendorKeysNv" not exist, initialize it in VENDOR_KEYS_VALID state.
+    //
+    mVendorKeyState = VENDOR_KEYS_VALID;
+    Status = UpdateVariable (
+               EFI_VENDOR_KEYS_NV_VARIABLE_NAME,
+               &gEfiVendorKeysNvGuid,
+               &mVendorKeyState,
+               sizeof (UINT8),
+               EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+               0,
+               0,
+               &Variable,
+               NULL
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
+  //
+  // Create "VendorKeys" variable with BS+RT attribute set.
+  //
+  FindVariable (EFI_VENDOR_KEYS_VARIABLE_NAME, &gEfiGlobalVariableGuid, &Variable, &mVariableModuleGlobal->VariableGlobal, FALSE);
+  Status = UpdateVariable (
+             EFI_VENDOR_KEYS_VARIABLE_NAME,
+             &gEfiGlobalVariableGuid,
+             &mVendorKeyState,
+             sizeof (UINT8),
+             EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+             0,
+             0,
+             &Variable,
+             NULL
+             );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  DEBUG ((EFI_D_INFO, "Variable %s is %x\n", EFI_VENDOR_KEYS_VARIABLE_NAME, mVendorKeyState));
 
   return Status;
 }
@@ -912,6 +962,56 @@ CheckSignatureListFormat(
 }
 
 /**
+  Update "VendorKeys" variable to record the out of band secure boot key modification.
+
+  @return EFI_SUCCESS           Variable is updated successfully.
+  @return Others                Failed to update variable.
+  
+**/
+EFI_STATUS
+VendorKeyIsModified (
+  VOID
+  )
+{
+  EFI_STATUS              Status;
+  VARIABLE_POINTER_TRACK  Variable;
+
+  if (mVendorKeyState == VENDOR_KEYS_MODIFIED) {
+    return EFI_SUCCESS;
+  }
+  mVendorKeyState = VENDOR_KEYS_MODIFIED;
+  
+  FindVariable (EFI_VENDOR_KEYS_NV_VARIABLE_NAME, &gEfiVendorKeysNvGuid, &Variable, &mVariableModuleGlobal->VariableGlobal, FALSE);
+  Status = UpdateVariable (
+             EFI_VENDOR_KEYS_NV_VARIABLE_NAME,
+             &gEfiVendorKeysNvGuid,
+             &mVendorKeyState,
+             sizeof (UINT8),
+             EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+             0,
+             0,
+             &Variable,
+             NULL
+             );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  FindVariable (EFI_VENDOR_KEYS_VARIABLE_NAME, &gEfiGlobalVariableGuid, &Variable, &mVariableModuleGlobal->VariableGlobal, FALSE);
+  return UpdateVariable (
+           EFI_VENDOR_KEYS_VARIABLE_NAME,
+           &gEfiGlobalVariableGuid,
+           &mVendorKeyState,
+           sizeof (UINT8),
+           EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+           0,
+           0,
+           &Variable,
+           NULL
+           );
+}
+
+/**
   Process variable with platform key for verification.
 
   Caution: This function may receive untrusted input.
@@ -985,6 +1085,13 @@ ProcessVarWithPk (
                Variable,
                &((EFI_VARIABLE_AUTHENTICATION_2 *) Data)->TimeStamp
                );
+    if (EFI_ERROR(Status)) {
+      return Status;
+    }
+
+    if ((mPlatformMode != SETUP_MODE) || IsPk) {
+      Status = VendorKeyIsModified ();
+    }
   } else if (mPlatformMode == USER_MODE) {
     //
     // Verify against X509 Cert in PK database.
@@ -1117,6 +1224,13 @@ ProcessVarWithKek (
                Variable,
                &((EFI_VARIABLE_AUTHENTICATION_2 *) Data)->TimeStamp
                );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    if (mPlatformMode != SETUP_MODE) {
+      Status = VendorKeyIsModified ();
+    }
   }
 
   return Status;
@@ -2081,7 +2195,24 @@ VerifyTimeBasedPayload (
 
   if (AuthVarType == AuthVarTypePk) {
     //
-    // Get platform key from variable.
+    // Verify that the signature has been made with the current Platform Key (no chaining for PK).
+    // First, get signer's certificates from SignedData.
+    //
+    VerifyStatus = Pkcs7GetSigners (
+                     SigData,
+                     SigDataSize,
+                     &SignerCerts,
+                     &CertStackSize,
+                     &RootCert,
+                     &RootCertSize
+                     );
+    if (!VerifyStatus) {
+      goto Exit;
+    }
+
+    //
+    // Second, get the current platform key from variable. Check whether it's identical with signer's certificates
+    // in SignedData. If not, return error immediately.
     //
     Status = FindVariable (
                EFI_PLATFORM_KEY_NAME,
@@ -2091,14 +2222,16 @@ VerifyTimeBasedPayload (
                FALSE
                );
     if (EFI_ERROR (Status)) {
-      return Status;
+      VerifyStatus = FALSE;
+      goto Exit;
     }
-
     CertList = (EFI_SIGNATURE_LIST *) GetVariableDataPtr (PkVariable.CurrPtr);
     Cert     = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
-    RootCert      = Cert->SignatureData;
-    RootCertSize  = CertList->SignatureSize - (sizeof (EFI_SIGNATURE_DATA) - 1);
-
+    if ((RootCertSize != (CertList->SignatureSize - (sizeof (EFI_SIGNATURE_DATA) - 1))) ||
+        (CompareMem (Cert->SignatureData, RootCert, RootCertSize) != 0)) {
+      VerifyStatus = FALSE;
+      goto Exit;
+    }
 
     //
     // Verify Pkcs7 SignedData via Pkcs7Verify library.
@@ -2254,7 +2387,7 @@ VerifyTimeBasedPayload (
 
 Exit:
 
-  if (AuthVarType == AuthVarTypePriv) {
+  if (AuthVarType == AuthVarTypePk || AuthVarType == AuthVarTypePriv) {
     Pkcs7FreeSigners (RootCert);
     Pkcs7FreeSigners (SignerCerts);
   }

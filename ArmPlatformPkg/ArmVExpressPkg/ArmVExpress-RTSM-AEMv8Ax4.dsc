@@ -40,6 +40,10 @@
 
   TimerLib|ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
 
+  # VirtIo Support
+  VirtioLib|OvmfPkg/Library/VirtioLib/VirtioLib.inf
+  VirtioMmioDeviceLib|OvmfPkg/Library/VirtioMmioDeviceLib/VirtioMmioDeviceLib.inf
+
 [LibraryClasses.common.SEC]
   ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64LibSec.inf
   ArmPlatformSecLib|ArmPlatformPkg/ArmVExpressPkg/Library/ArmVExpressSecLibRTSM/ArmVExpressSecLib.inf
@@ -237,6 +241,18 @@
 
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
+  #
+  # ACPI Support
+  #
+  MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf
+  #^M
+  # SMBIOS Support^M
+  #^M
+  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  ArmPkg/Drivers/UpdateSmbios/UpdateSmbios.inf
+
   ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
@@ -254,6 +270,12 @@
   EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
   ArmPlatformPkg/Drivers/PL180MciDxe/PL180MciDxe.inf
  
+  #
+  # Platform Driver
+  #
+  ArmPlatformPkg/ArmVExpressPkg/ArmFvpDxe/ArmFvpDxe.inf
+  OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
+
   #
   # FAT filesystem + GPT/MBR partitioning
   #

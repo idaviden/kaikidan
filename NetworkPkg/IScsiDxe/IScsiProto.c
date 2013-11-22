@@ -259,15 +259,16 @@ IScsiCreateConnection (
     CopyMem (&Tcp4IoConfig->Gateway, &NvData->Gateway, sizeof (EFI_IPv4_ADDRESS));
     CopyMem (&Tcp4IoConfig->RemoteIp, &NvData->TargetIp, sizeof (EFI_IPv4_ADDRESS));
 
-    Tcp4IoConfig->RemotePort = NvData->TargetPort;
-    Tcp4IoConfig->ActiveFlag = TRUE;
-
+    Tcp4IoConfig->RemotePort  = NvData->TargetPort;
+    Tcp4IoConfig->ActiveFlag  = TRUE;
+    Tcp4IoConfig->StationPort = 0;
   } else {
     Tcp6IoConfig = &TcpIoConfig.Tcp6IoConfigData;
   
     CopyMem (&Tcp6IoConfig->RemoteIp, &NvData->TargetIp, sizeof (EFI_IPv6_ADDRESS));
-    Tcp6IoConfig->RemotePort = NvData->TargetPort;
-    Tcp6IoConfig->ActiveFlag = TRUE;
+    Tcp6IoConfig->RemotePort  = NvData->TargetPort;
+    Tcp6IoConfig->ActiveFlag  = TRUE;
+    Tcp6IoConfig->StationPort = 0;
   }
 
   //
@@ -2851,7 +2852,8 @@ IScsiExecuteScsiCommand (
   Timeout       = 0;
 
   if (Session->State != SESSION_STATE_LOGGED_IN) {
-    return EFI_DEVICE_ERROR;
+    Status = EFI_DEVICE_ERROR;
+    goto ON_EXIT;
   }
 
   Conn = NET_LIST_USER_STRUCT_S (
@@ -3025,7 +3027,7 @@ IScsiSessionReinstatement (
 {
   EFI_STATUS    Status;
 
-  ASSERT (Session->State == SESSION_STATE_LOGGED_IN);
+  ASSERT (Session->State != SESSION_STATE_FREE);
 
   //
   // Abort the session and re-init it.

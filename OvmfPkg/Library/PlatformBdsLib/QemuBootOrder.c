@@ -2,6 +2,7 @@
   Rewrite the BootOrder NvVar based on QEMU's "bootorder" fw_cfg file.
 
   Copyright (C) 2012 - 2013, Red Hat, Inc.
+  Copyright (c) 2013, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials are licensed and made available
   under the terms and conditions of the BSD License which accompanies this
@@ -238,16 +239,27 @@ typedef struct {
 
 
 /**
+  Array element tracking an enumerated boot option that has the
+  LOAD_OPTION_ACTIVE attribute.
+**/
+typedef struct {
+  CONST BDS_COMMON_OPTION *BootOption; // reference only, no ownership
+  BOOLEAN                 Appended;    // has been added to a BOOT_ORDER?
+} ACTIVE_OPTION;
 
-  Append BootOptionId to BootOrder, reallocating the latter if needed.
+
+/**
+
+  Append an active boot option to BootOrder, reallocating the latter if needed.
 
   @param[in out] BootOrder     The structure pointing to the array and holding
                                allocation and usage counters.
 
-  @param[in]     BootOptionId  The value to append to the array.
+  @param[in]     ActiveOption  The active boot option whose ID should be
+                               appended to the array.
 
 
-  @retval RETURN_SUCCESS           BootOptionId appended.
+  @retval RETURN_SUCCESS           ID of ActiveOption appended.
 
   @retval RETURN_OUT_OF_RESOURCES  Memory reallocation failed.
 
@@ -255,8 +267,8 @@ typedef struct {
 STATIC
 RETURN_STATUS
 BootOrderAppend (
-  IN OUT  BOOT_ORDER *BootOrder,
-  IN      UINT16     BootOptionId
+  IN OUT  BOOT_ORDER    *BootOrder,
+  IN OUT  ACTIVE_OPTION *ActiveOption
   )
 {
   if (BootOrder->Produced == BootOrder->Allocated) {
@@ -277,7 +289,81 @@ BootOrderAppend (
     BootOrder->Data      = DataNew;
   }
 
-  BootOrder->Data[BootOrder->Produced++] = BootOptionId;
+  BootOrder->Data[BootOrder->Produced++] =
+                                         ActiveOption->BootOption->BootCurrent;
+  ActiveOption->Appended = TRUE;
+  return RETURN_SUCCESS;
+}
+
+
+/**
+
+  Create an array of ACTIVE_OPTION elements for a boot option list.
+
+  @param[in]  BootOptionList  A boot option list, created with
+                              BdsLibEnumerateAllBootOption().
+
+  @param[out] ActiveOption    Pointer to the first element in the new array.
+                              The caller is responsible for freeing the array
+                              with FreePool() after use.
+
+  @param[out] Count           Number of elements in the new array.
+
+
+  @retval RETURN_SUCCESS           The ActiveOption array has been created.
+
+  @retval RETURN_NOT_FOUND         No active entry has been found in
+                                   BootOptionList.
+
+  @retval RETURN_OUT_OF_RESOURCES  Memory allocation failed.
+
+**/
+STATIC
+RETURN_STATUS
+CollectActiveOptions (
+  IN   CONST LIST_ENTRY *BootOptionList,
+  OUT  ACTIVE_OPTION    **ActiveOption,
+  OUT  UINTN            *Count
+  )
+{
+  UINTN ScanMode;
+
+  *ActiveOption = NULL;
+
+  //
+  // Scan the list twice:
+  // - count active entries,
+  // - store links to active entries.
+  //
+  for (ScanMode = 0; ScanMode < 2; ++ScanMode) {
+    CONST LIST_ENTRY *Link;
+
+    Link = BootOptionList->ForwardLink;
+    *Count = 0;
+    while (Link != BootOptionList) {
+      CONST BDS_COMMON_OPTION *Current;
+
+      Current = CR (Link, BDS_COMMON_OPTION, Link, BDS_LOAD_OPTION_SIGNATURE);
+      if (IS_LOAD_OPTION_TYPE (Current->Attribute, LOAD_OPTION_ACTIVE)) {
+        if (ScanMode == 1) {
+          (*ActiveOption)[*Count].BootOption = Current;
+          (*ActiveOption)[*Count].Appended   = FALSE;
+        }
+        ++*Count;
+      }
+      Link = Link->ForwardLink;
+    }
+
+    if (ScanMode == 0) {
+      if (*Count == 0) {
+        return RETURN_NOT_FOUND;
+      }
+      *ActiveOption = AllocatePool (*Count * sizeof **ActiveOption);
+      if (*ActiveOption == NULL) {
+        return RETURN_OUT_OF_RESOURCES;
+      }
+    }
+  }
   return RETURN_SUCCESS;
 }
 
@@ -882,6 +968,34 @@ Match (
   }
 
   //
+  // Attempt to expand any relative UEFI device path starting with HD() to an
+  // absolute device path first. The logic imitates BdsLibBootViaBootOption().
+  // We don't have to free the absolute device path,
+  // BdsExpandPartitionPartialDevicePathToFull() has internal caching.
+  //
+  Result = FALSE;
+  if (DevicePathType (DevicePath) == MEDIA_DEVICE_PATH &&
+      DevicePathSubType (DevicePath) == MEDIA_HARDDRIVE_DP) {
+    EFI_DEVICE_PATH_PROTOCOL *AbsDevicePath;
+    CHAR16                   *AbsConverted;
+
+    AbsDevicePath = BdsExpandPartitionPartialDevicePathToFull (
+                      (HARDDRIVE_DEVICE_PATH *) DevicePath);
+    if (AbsDevicePath == NULL) {
+      goto Exit;
+    }
+    AbsConverted = ConvertDevicePathToText (AbsDevicePath, FALSE, FALSE);
+    if (AbsConverted == NULL) {
+      goto Exit;
+    }
+    DEBUG ((DEBUG_VERBOSE,
+      "%a: expanded relative device path \"%s\" for prefix matching\n",
+      __FUNCTION__, Converted));
+    FreePool (Converted);
+    Converted = AbsConverted;
+  }
+
+  //
   // Is Translated a prefix of Converted?
   //
   Result = (BOOLEAN)(StrnCmp (Converted, Translated, TranslatedLength) == 0);
@@ -892,8 +1006,108 @@ Match (
     Converted,
     Result ? "match" : "no match"
     ));
+Exit:
   FreePool (Converted);
   return Result;
+}
+
+
+/**
+  Append some of the unselected active boot options to the boot order.
+
+  This function should accommodate any further policy changes in "boot option
+  survival". Currently we're adding back everything that starts with neither
+  PciRoot() nor HD().
+
+  @param[in,out] BootOrder     The structure holding the boot order to
+                               complete. The caller is responsible for
+                               initializing (and potentially populating) it
+                               before calling this function.
+
+  @param[in,out] ActiveOption  The array of active boot options to scan.
+                               Entries marked as Appended will be skipped.
+                               Those of the rest that satisfy the survival
+                               policy will be added to BootOrder with
+                               BootOrderAppend().
+
+  @param[in]     ActiveCount   Number of elements in ActiveOption.
+
+
+  @retval RETURN_SUCCESS  BootOrder has been extended with any eligible boot
+                          options.
+
+  @return                 Error codes returned by BootOrderAppend().
+**/
+STATIC
+RETURN_STATUS
+BootOrderComplete (
+  IN OUT  BOOT_ORDER    *BootOrder,
+  IN OUT  ACTIVE_OPTION *ActiveOption,
+  IN      UINTN         ActiveCount
+  )
+{
+  RETURN_STATUS Status;
+  UINTN         Idx;
+
+  Status = RETURN_SUCCESS;
+  Idx = 0;
+  while (!RETURN_ERROR (Status) && Idx < ActiveCount) {
+    if (!ActiveOption[Idx].Appended) {
+      CONST BDS_COMMON_OPTION        *Current;
+      CONST EFI_DEVICE_PATH_PROTOCOL *FirstNode;
+
+      Current = ActiveOption[Idx].BootOption;
+      FirstNode = Current->DevicePath;
+      if (FirstNode != NULL) {
+        CHAR16        *Converted;
+        STATIC CHAR16 ConvFallBack[] = L"<unable to convert>";
+        BOOLEAN       Keep;
+
+        Converted = ConvertDevicePathToText (FirstNode, FALSE, FALSE);
+        if (Converted == NULL) {
+          Converted = ConvFallBack;
+        }
+
+        Keep = TRUE;
+        if (DevicePathType(FirstNode) == MEDIA_DEVICE_PATH &&
+            DevicePathSubType(FirstNode) == MEDIA_HARDDRIVE_DP) {
+          //
+          // drop HD()
+          //
+          Keep = FALSE;
+        } else if (DevicePathType(FirstNode) == ACPI_DEVICE_PATH &&
+                   DevicePathSubType(FirstNode) == ACPI_DP) {
+          ACPI_HID_DEVICE_PATH *Acpi;
+
+          Acpi = (ACPI_HID_DEVICE_PATH *) FirstNode;
+          if ((Acpi->HID & PNP_EISA_ID_MASK) == PNP_EISA_ID_CONST &&
+              EISA_ID_TO_NUM (Acpi->HID) == 0x0a03) {
+            //
+            // drop PciRoot()
+            //
+            Keep = FALSE;
+          }
+        }
+
+        if (Keep) {
+          Status = BootOrderAppend (BootOrder, &ActiveOption[Idx]);
+          if (!RETURN_ERROR (Status)) {
+            DEBUG ((DEBUG_VERBOSE, "%a: keeping \"%s\"\n", __FUNCTION__,
+              Converted));
+          }
+        } else {
+          DEBUG ((DEBUG_VERBOSE, "%a: dropping \"%s\"\n", __FUNCTION__,
+            Converted));
+        }
+
+        if (Converted != ConvFallBack) {
+          FreePool (Converted);
+        }
+      }
+    }
+    ++Idx;
+  }
+  return Status;
 }
 
 
@@ -938,6 +1152,8 @@ SetBootOrderFromQemu (
   CONST CHAR8                      *FwCfgPtr;
 
   BOOT_ORDER                       BootOrder;
+  ACTIVE_OPTION                    *ActiveOption;
+  UINTN                            ActiveCount;
 
   UINTN                            TranslatedSize;
   CHAR16                           Translated[TRANSLATION_OUTPUT_SIZE];
@@ -978,6 +1194,11 @@ SetBootOrderFromQemu (
     goto ErrorFreeFwCfg;
   }
 
+  Status = CollectActiveOptions (BootOptionList, &ActiveOption, &ActiveCount);
+  if (RETURN_ERROR (Status)) {
+    goto ErrorFreeBootOrder;
+  }
+
   //
   // translate each OpenFirmware path
   //
@@ -987,38 +1208,28 @@ SetBootOrderFromQemu (
          Status == RETURN_UNSUPPORTED ||
          Status == RETURN_BUFFER_TOO_SMALL) {
     if (Status == RETURN_SUCCESS) {
-      CONST LIST_ENTRY *Link;
+      UINTN Idx;
 
       //
-      // match translated OpenFirmware path against all enumerated boot options
+      // match translated OpenFirmware path against all active boot options
       //
-      for (Link = BootOptionList->ForwardLink; Link != BootOptionList;
-           Link = Link->ForwardLink) {
-        CONST BDS_COMMON_OPTION *BootOption;
-
-        BootOption = CR (
-                       Link,
-                       BDS_COMMON_OPTION,
-                       Link,
-                       BDS_LOAD_OPTION_SIGNATURE
-                       );
-        if (IS_LOAD_OPTION_TYPE (BootOption->Attribute, LOAD_OPTION_ACTIVE) &&
-            Match (
+      for (Idx = 0; Idx < ActiveCount; ++Idx) {
+        if (Match (
               Translated,
               TranslatedSize, // contains length, not size, in CHAR16's here
-              BootOption->DevicePath
+              ActiveOption[Idx].BootOption->DevicePath
               )
             ) {
           //
           // match found, store ID and continue with next OpenFirmware path
           //
-          Status = BootOrderAppend (&BootOrder, BootOption->BootCurrent);
+          Status = BootOrderAppend (&BootOrder, &ActiveOption[Idx]);
           if (Status != RETURN_SUCCESS) {
-            goto ErrorFreeBootOrder;
+            goto ErrorFreeActiveOption;
           }
           break;
         }
-      } // scanned all enumerated boot options
+      } // scanned all active boot options
     }   // translation successful
 
     TranslatedSize = sizeof (Translated) / sizeof (Translated[0]);
@@ -1028,6 +1239,15 @@ SetBootOrderFromQemu (
   if (Status == RETURN_NOT_FOUND && BootOrder.Produced > 0) {
     //
     // No more OpenFirmware paths, some matches found: rewrite BootOrder NvVar.
+    // Some of the active boot options that have not been selected over fw_cfg
+    // should be preserved at the end of the boot order.
+    //
+    Status = BootOrderComplete (&BootOrder, ActiveOption, ActiveCount);
+    if (RETURN_ERROR (Status)) {
+      goto ErrorFreeActiveOption;
+    }
+
+    //
     // See Table 10 in the UEFI Spec 2.3.1 with Errata C for the required
     // attributes.
     //
@@ -1047,6 +1267,9 @@ SetBootOrderFromQemu (
       Status == EFI_SUCCESS ? "success" : "error"
       ));
   }
+
+ErrorFreeActiveOption:
+  FreePool (ActiveOption);
 
 ErrorFreeBootOrder:
   FreePool (BootOrder.Data);

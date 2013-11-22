@@ -105,6 +105,20 @@ GLOBAL_VARIABLE_ENTRY mGlobalVariableList2[] = {
 };
 
 /**
+
+  SecureBoot Hook for auth variable update.
+
+  @param[in] VariableName                 Name of Variable to be found.
+  @param[in] VendorGuid                   Variable vendor GUID.
+**/
+VOID
+EFIAPI
+SecureBootHook (
+  IN CHAR16                                 *VariableName,
+  IN EFI_GUID                               *VendorGuid
+  );
+
+/**
   Routine used to track statistical information about variable usage.
   The data is stored in the EFI system table so it can be accessed later.
   VariableInfo.efi can dump out the table. Only Boot Services variable
@@ -2500,7 +2514,13 @@ IsReadOnlyVariable (
   if (CompareGuid (VendorGuid, &gEfiGlobalVariableGuid)) {
     if ((StrCmp (VariableName, EFI_SETUP_MODE_NAME) == 0) ||
         (StrCmp (VariableName, EFI_SIGNATURE_SUPPORT_NAME) == 0) ||
-        (StrCmp (VariableName, EFI_SECURE_BOOT_MODE_NAME) == 0)) {
+        (StrCmp (VariableName, EFI_SECURE_BOOT_MODE_NAME) == 0) ||
+        (StrCmp (VariableName, EFI_VENDOR_KEYS_VARIABLE_NAME) == 0) ||
+        (StrCmp (VariableName, EFI_KEK_DEFAULT_VARIABLE_NAME) == 0) ||
+        (StrCmp (VariableName, EFI_PK_DEFAULT_VARIABLE_NAME) == 0) ||
+        (StrCmp (VariableName, EFI_DB_DEFAULT_VARIABLE_NAME) == 0) ||
+        (StrCmp (VariableName, EFI_DBX_DEFAULT_VARIABLE_NAME) == 0) ||
+        (StrCmp (VariableName, EFI_DBT_DEFAULT_VARIABLE_NAME) == 0)) {
       return TRUE;
     }
   }
@@ -2974,6 +2994,15 @@ VariableServiceSetVariable (
 Done:
   InterlockedDecrement (&mVariableModuleGlobal->VariableGlobal.ReentrantState);
   ReleaseLockOnlyAtBootTime (&mVariableModuleGlobal->VariableGlobal.VariableServicesLock);
+
+  if (!AtRuntime ()) {
+    if (!EFI_ERROR (Status)) {
+      SecureBootHook (
+        VariableName,
+        VendorGuid
+        );
+    }
+  }
 
   return Status;
 }

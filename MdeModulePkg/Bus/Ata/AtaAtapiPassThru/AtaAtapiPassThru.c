@@ -2,7 +2,7 @@
   This file implements ATA_PASSTHRU_PROCTOCOL and EXT_SCSI_PASSTHRU_PROTOCOL interfaces
   for managed ATA controllers.
 
-  Copyright (c) 2010 - 2012, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -1265,6 +1265,15 @@ AtaPassThruPassThru (
     return EFI_INVALID_PARAMETER;
   }
 
+  Node = SearchDeviceInfoList (Instance, Port, PortMultiplierPort, EfiIdeHarddisk);
+
+  if (Node == NULL) {
+    Node = SearchDeviceInfoList(Instance, Port, PortMultiplierPort, EfiIdeCdrom);
+    if (Node == NULL) {
+      return EFI_INVALID_PARAMETER;
+    }
+  }
+
   //
   // convert the transfer length from sector count to byte.
   //
@@ -1279,12 +1288,6 @@ AtaPassThruPassThru (
   if (((Packet->Length & EFI_ATA_PASS_THRU_LENGTH_BYTES) == 0) &&
        (Packet->OutTransferLength != 0)) {
     Packet->OutTransferLength = Packet->OutTransferLength * 0x200;
-  }
-
-  Node = SearchDeviceInfoList (Instance, Port, PortMultiplierPort, EfiIdeHarddisk);
-
-  if (Node == NULL) {
-    return EFI_INVALID_PARAMETER;
   }
 
   //
@@ -1761,7 +1764,10 @@ AtaPassThruResetPort (
   IN UINT16                     Port
   )
 {
-  return EFI_UNSUPPORTED;
+  //
+  // Return success directly then upper layer driver could think reset port operation is done.
+  //
+  return EFI_SUCCESS;
 }
 
 /**
@@ -1803,7 +1809,21 @@ AtaPassThruResetDevice (
   IN UINT16                     PortMultiplierPort
   )
 {
-  return EFI_UNSUPPORTED;
+  ATA_ATAPI_PASS_THRU_INSTANCE    *Instance;
+  LIST_ENTRY                      *Node;
+
+  Instance = ATA_PASS_THRU_PRIVATE_DATA_FROM_THIS (This);
+
+  Node = SearchDeviceInfoList (Instance, Port, PortMultiplierPort, EfiIdeHarddisk);
+
+  if (Node == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  //
+  // Return success directly then upper layer driver could think reset device operation is done.
+  //
+  return EFI_SUCCESS;
 }
 
 /**
@@ -2271,7 +2291,10 @@ ExtScsiPassThruResetChannel (
   IN  EFI_EXT_SCSI_PASS_THRU_PROTOCOL   *This
   )
 {
-  return EFI_UNSUPPORTED;
+  //
+  // Return success directly then upper layer driver could think reset channel operation is done.
+  //
+  return EFI_SUCCESS;
 }
 
 /**
@@ -2301,7 +2324,41 @@ ExtScsiPassThruResetTargetLun (
   IN UINT64                             Lun
   )
 {
-  return EFI_UNSUPPORTED;
+  ATA_ATAPI_PASS_THRU_INSTANCE    *Instance;
+  LIST_ENTRY                      *Node;
+  UINT8                           Port;
+  UINT8                           PortMultiplier;
+
+  Instance = EXT_SCSI_PASS_THRU_PRIVATE_DATA_FROM_THIS (This);
+  //
+  // For ATAPI device, doesn't support multiple LUN device.
+  //
+  if (Lun != 0) {
+    return EFI_INVALID_PARAMETER;
+  }
+  //
+  // The layout of Target array:
+  //  ________________________________________________________________________
+  // |       Byte 0        |       Byte 1        | ... | TARGET_MAX_BYTES - 1 |
+  // |_____________________|_____________________|_____|______________________|
+  // |                     | The port multiplier |     |                      |
+  // |   The port number   |    port number      | N/A |         N/A          |
+  // |_____________________|_____________________|_____|______________________|
+  //
+  // For ATAPI device, 2 bytes is enough to represent the location of SCSI device.
+  //
+  Port           = Target[0];
+  PortMultiplier = Target[1];
+
+  Node = SearchDeviceInfoList(Instance, Port, PortMultiplier, EfiIdeCdrom);
+  if (Node == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  //
+  // Return success directly then upper layer driver could think reset target LUN operation is done.
+  //
+  return EFI_SUCCESS;
 }
 
 /**

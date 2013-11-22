@@ -22,10 +22,10 @@ ErasePolarity = 1
 BlockSize     = 0x1000
 NumBlocks     = 0x100
 
-0x00000000|0x000E6000
+0x00000000|0x000EC000
 FV = FVMAIN_COMPACT
 
-0x000E6000|0x1A000
+0x000EC000|0x14000
 FV = SECFV
 !else
 [FD.OVMF]
@@ -83,7 +83,7 @@ READ_LOCK_STATUS   = TRUE
 #
 INF  OvmfPkg/Sec/SecMain.inf
 
-INF  RuleOverride=RESET_VECTOR UefiCpuPkg/ResetVector/Vtf0/Bin/ResetVector.inf
+INF  RuleOverride=RESET_VECTOR OvmfPkg/ResetVector/Bin/ResetVector.inf
 
 ################################################################################
 [FV.MAINFV]
@@ -181,6 +181,7 @@ INF  MdeModulePkg/Universal/Metronome/Metronome.inf
 INF  PcAtChipsetPkg/PcatRealTimeClockRuntimeDxe/PcatRealTimeClockRuntimeDxe.inf
 
 INF  OvmfPkg/BlockMmioToBlockIoDxe/BlockIo.inf
+INF  OvmfPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
 INF  OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
 INF  OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
 INF  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf
