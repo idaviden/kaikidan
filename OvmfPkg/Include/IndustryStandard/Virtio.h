@@ -36,6 +36,56 @@
 #define VIRTIO_SUBSYSTEM_MAC80211_WLAN      10
 
 //
+<<<<<<< HEAD
+// Virtio IDs
+//
+#define VIRTIO_VENDOR_ID                    0x1AF4
+#define VIRTIO_MMIO_MAGIC                   0x74726976 // "virt"
+
+
+//
+// VirtIo Device Specific Configuration Offsets
+//
+#define VIRTIO_DEVICE_SPECIFIC_CONFIGURATION_OFFSET_PCI             20
+#define VIRTIO_DEVICE_SPECIFIC_CONFIGURATION_OFFSET_PCI_WITH_MSI_X  24
+#define VIRTIO_DEVICE_SPECIFIC_CONFIGURATION_OFFSET_MMIO            0x100
+
+//
+// PCI VirtIo Header Offsets
+//
+#define VIRTIO_PCI_OFFSET_DEVICE_FEATURES           0x00
+#define VIRTIO_PCI_OFFSET_GUEST_FEATURES            0x04
+#define VIRTIO_PCI_OFFSET_QUEUE_ADDRESS             0x08
+#define VIRTIO_PCI_OFFSET_QUEUE_SIZE                0x0C
+#define VIRTIO_PCI_OFFSET_QUEUE_SELECT              0x0E
+#define VIRTIO_PCI_OFFSET_QUEUE_NOTIFY              0x10
+#define VIRTIO_PCI_OFFSET_QUEUE_DEVICE_STATUS       0x12
+#define VIRTIO_PCI_OFFSET_QUEUE_DEVICE_ISR          0x13
+
+//
+// MMIO VirtIo Header Offsets
+//
+#define VIRTIO_MMIO_OFFSET_MAGIC                    0x00
+#define VIRTIO_MMIO_OFFSET_VERSION                  0x04
+#define VIRTIO_MMIO_OFFSET_DEVICE_ID                0x08
+#define VIRTIO_MMIO_OFFSET_VENDOR_ID                0x0C
+#define VIRTIO_MMIO_OFFSET_HOST_FEATURES            0x10
+#define VIRTIO_MMIO_OFFSET_HOST_FEATURES_SEL        0x14
+#define VIRTIO_MMIO_OFFSET_GUEST_FEATURES           0x20
+#define VIRTIO_MMIO_OFFSET_GUEST_FEATURES_SEL       0x24
+#define VIRTIO_MMIO_OFFSET_GUEST_PAGE_SIZE          0x28
+#define VIRTIO_MMIO_OFFSET_QUEUE_SEL                0x30
+#define VIRTIO_MMIO_OFFSET_QUEUE_NUM_MAX            0x34
+#define VIRTIO_MMIO_OFFSET_QUEUE_NUM                0x38
+#define VIRTIO_MMIO_OFFSET_QUEUE_ALIGN              0x3C
+#define VIRTIO_MMIO_OFFSET_QUEUE_PFN                0x40
+#define VIRTIO_MMIO_OFFSET_QUEUE_NOTIFY             0x50
+#define VIRTIO_MMIO_OFFSET_INTERRUPT_STATUS         0x60
+#define VIRTIO_MMIO_OFFSET_INTERRUPT_ACK            0x64
+#define VIRTIO_MMIO_OFFSET_STATUS                   0x70
+
+//
+=======
 // Virtio IDs
 //
 #define VIRTIO_VENDOR_ID                    0x1AF4
@@ -83,6 +133,7 @@
 #define VIRTIO_MMIO_OFFSET_STATUS                   0x70
 
 //
+>>>>>>> linaro-topic-virtio
 // Data in the communication area is defined as packed and accessed as
 // volatile.
 //

@@ -136,6 +136,9 @@ typedef struct {
 
   UINT8            Type;           // Storage type
 
+  BOOLEAN          Initialized;    // Whether this varstore is initialized, efi varstore not used.
+
+  EFI_HII_HANDLE   HiiHandle;      // HiiHandle for this varstore, efi varstore not used.
   EFI_GUID         Guid;
 
   CHAR16           *Name;          // For EFI_IFR_VARSTORE
@@ -1613,5 +1616,25 @@ VOID
 CleanBrowserStorage (
   IN OUT FORM_BROWSER_FORMSET  *FormSet
   );
-  
+
+/**
+  Find HII Handle in the HII database associated with given Device Path.
+
+  If DevicePath is NULL, then ASSERT.
+
+  @param  DevicePath             Device Path associated with the HII package list
+                                 handle.
+  @param  FormsetGuid            The formset guid for this formset.
+
+  @retval Handle                 HII package list Handle associated with the Device
+                                        Path.
+  @retval NULL                   Hii Package list handle is not found.
+
+**/
+EFI_HII_HANDLE
+DevicePathToHiiHandle (
+  IN EFI_DEVICE_PATH_PROTOCOL   *DevicePath,
+  IN EFI_GUID                   *FormsetGuid
+  );
+
 #endif

@@ -1,6 +1,7 @@
 /** @file
   Provides interface to advanced shell functionality for parsing both handle and protocol database.
 
+  Copyright (c) 2013 Hewlett-Packard Development Company, L.P.
   Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -618,7 +619,17 @@ STATIC CONST GUID_INFO_BLOCK mGuidStringList[] = {
   {STRING_TOKEN(STR_KMS),                   &gEfiKmsProtocolGuid,                             NULL},
   {STRING_TOKEN(STR_BLK_IO2),               &gEfiBlockIo2ProtocolGuid,                        NULL},
   {STRING_TOKEN(STR_SSC),                   &gEfiStorageSecurityCommandProtocolGuid,          NULL},
-  {STRING_TOKEN(STR_UC2),                   &gEfiUserCredential2ProtocolGuid,                 NULL},
+  {STRING_TOKEN(STR_UCRED2),                &gEfiUserCredential2ProtocolGuid,                 NULL},
+
+//
+// UEFI 2.4
+//
+  {STRING_TOKEN(STR_DISK_IO2),              &gEfiDiskIo2ProtocolGuid,                         NULL},
+
+//
+// PI Spec ones
+//
+  {STRING_TOKEN(STR_IDE_CONT_INIT),         &gEfiIdeControllerInitProtocolGuid,               NULL},
 
 //
 // terminator
@@ -753,7 +764,7 @@ GetGuidFromStringName(
   if (PcdGetBool(PcdShellIncludeNtGuids)) {
     for (ListWalker = mGuidStringListNT ; ListWalker != NULL && ListWalker->GuidId != NULL ; ListWalker++) {
       String = HiiGetString(mHandleParsingHiiHandle, ListWalker->StringId, Lang);
-      if (Name != NULL && String != NULL && StrCmp(Name, String)==0) {
+      if (Name != NULL && String != NULL && StringNoCaseCompare (&Name, &String) == 0) {
         *Guid = ListWalker->GuidId;
       }
       SHELL_FREE_NON_NULL(String);
@@ -764,7 +775,7 @@ GetGuidFromStringName(
   }
   for (ListWalker = mGuidStringList ; ListWalker != NULL && ListWalker->GuidId != NULL ; ListWalker++) {
     String = HiiGetString(mHandleParsingHiiHandle, ListWalker->StringId, Lang);
-    if (Name != NULL && String != NULL && StrCmp(Name, String)==0) {
+    if (Name != NULL && String != NULL && StringNoCaseCompare (&Name, &String) == 0) {
       *Guid = ListWalker->GuidId;
     }
     SHELL_FREE_NON_NULL(String);

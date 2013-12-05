@@ -16,6 +16,22 @@
 
 BOOLEAN  mSkipBreakpoint = FALSE;
 
+
+EFI_PEI_VECTOR_HANDOFF_INFO_PPI mVectorHandoffInfoPpi = {
+  &mVectorHandoffInfoDebugAgent[0]
+};
+
+//
+// Ppis to be installed
+//
+EFI_PEI_PPI_DESCRIPTOR           mVectorHandoffInfoPpiList[] = { 
+  {
+    (EFI_PEI_PPI_DESCRIPTOR_PPI | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
+    &gEfiVectorHandoffInfoPpiGuid,
+    &mVectorHandoffInfoPpi
+  }
+};
+
 EFI_PEI_NOTIFY_DESCRIPTOR mMemoryDiscoveredNotifyList[1] = {
   {
     (EFI_PEI_PPI_DESCRIPTOR_NOTIFY_CALLBACK | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
@@ -348,6 +364,7 @@ InitializeDebugAgent (
   )
 {
   DEBUG_AGENT_MAILBOX              *Mailbox;
+  DEBUG_AGENT_MAILBOX              *NewMailbox;
   DEBUG_AGENT_MAILBOX              MailboxInStack;
   DEBUG_AGENT_PHASE2_CONTEXT       Phase2Context;
   DEBUG_AGENT_CONTEXT_POSTMEM_SEC  *DebugAgentContext;
@@ -357,6 +374,7 @@ InitializeDebugAgent (
   UINT64                           DebugPortHandle;
   UINT64                           MailboxLocation;
   UINT64                           *MailboxLocationPointer;
+  EFI_PHYSICAL_ADDRESS             Address; 
   
   DisableInterrupts ();
 
@@ -406,24 +424,65 @@ InitializeDebugAgent (
       //
       TriggerSoftInterrupt (MEMORY_READY_SIGNATURE);
     }
-
+    //
+    // Install Vector Handoff Info PPI to persist vectors used by Debug Agent
+    //
+    Status = PeiServicesInstallPpi (&mVectorHandoffInfoPpiList[0]);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((EFI_D_ERROR, "DebugAgent: Failed to install Vector Handoff Info PPI!\n"));
+      CpuDeadLoop ();
+    }
     //
     // Fix up Debug Port handle address and mailbox address
     //
     DebugAgentContext = (DEBUG_AGENT_CONTEXT_POSTMEM_SEC *) Context;
-    DebugPortHandle = (UINT64)(UINT32)(Mailbox->DebugPortHandle + DebugAgentContext->StackMigrateOffset);
-    UpdateMailboxContent (Mailbox, DEBUG_MAILBOX_DEBUG_PORT_HANDLE_INDEX, DebugPortHandle);
-    Mailbox = (DEBUG_AGENT_MAILBOX *) ((UINTN) Mailbox + DebugAgentContext->StackMigrateOffset);
-    MailboxLocation = (UINT64)(UINTN)Mailbox;
-    //
-    // Build mailbox location in HOB and fix-up its address
-    //
-    MailboxLocationPointer = BuildGuidDataHob (
-                               &gEfiDebugAgentGuid,
-                               &MailboxLocation,
-                               sizeof (UINT64)
-                               );
-    MailboxLocationPointer = (UINT64 *) ((UINTN) MailboxLocationPointer + DebugAgentContext->HeapMigrateOffset);
+    if (DebugAgentContext != NULL) {
+      DebugPortHandle = (UINT64)(UINT32)(Mailbox->DebugPortHandle + DebugAgentContext->StackMigrateOffset);
+      UpdateMailboxContent (Mailbox, DEBUG_MAILBOX_DEBUG_PORT_HANDLE_INDEX, DebugPortHandle);
+      Mailbox = (DEBUG_AGENT_MAILBOX *) ((UINTN) Mailbox + DebugAgentContext->StackMigrateOffset);
+      MailboxLocation = (UINT64)(UINTN)Mailbox;
+      //
+      // Build mailbox location in HOB and fix-up its address
+      //
+      MailboxLocationPointer = BuildGuidDataHob (
+                                 &gEfiDebugAgentGuid,
+                                 &MailboxLocation,
+                                 sizeof (UINT64)
+                                 );
+      MailboxLocationPointer = (UINT64 *) ((UINTN) MailboxLocationPointer + DebugAgentContext->HeapMigrateOffset);
+    } else {
+      //
+      // DebugAgentContext is NULL. Then, Mailbox can directly be copied into memory.
+      // Allocate ACPI NVS memory for new Mailbox and Debug Port Handle buffer
+      //
+      Status = PeiServicesAllocatePages (
+                 EfiACPIMemoryNVS,
+                 EFI_SIZE_TO_PAGES (sizeof(DEBUG_AGENT_MAILBOX) + PcdGet16(PcdDebugPortHandleBufferSize)),
+                 &Address
+                 );
+      if (EFI_ERROR (Status)) {
+        DEBUG ((EFI_D_ERROR, "DebugAgent: Failed to allocate pages!\n"));
+        CpuDeadLoop ();
+      }
+      NewMailbox = (DEBUG_AGENT_MAILBOX *) (UINTN) Address;
+      //
+      // Copy Mailbox and Debug Port Handle buffer to new location in ACPI NVS memory, because original Mailbox
+      // and Debug Port Handle buffer in the allocated pool that may be marked as free by DXE Core after DXE Core
+      // reallocates the HOB.
+      //
+      CopyMem (NewMailbox, Mailbox, sizeof (DEBUG_AGENT_MAILBOX));
+      CopyMem (NewMailbox + 1, (VOID *)(UINTN)Mailbox->DebugPortHandle, PcdGet16(PcdDebugPortHandleBufferSize));
+      UpdateMailboxContent (NewMailbox, DEBUG_MAILBOX_DEBUG_PORT_HANDLE_INDEX, (UINT64)(UINTN)(NewMailbox + 1));
+      MailboxLocation = (UINT64)(UINTN)NewMailbox;
+      //
+      // Build mailbox location in HOB
+      //
+      MailboxLocationPointer = BuildGuidDataHob (
+                                 &gEfiDebugAgentGuid,
+                                 &MailboxLocation,
+                                 sizeof (UINT64)
+                                 );
+    }
     //
     // Update IDT entry to save the location saved mailbox pointer
     //
@@ -442,6 +501,14 @@ InitializeDebugAgent (
     if (IsDebugAgentInitialzed()) {
       DEBUG ((EFI_D_WARN, "Debug Agent: It has already initialized in SEC Core!\n"));
       break;
+    }
+    //
+    // Install Vector Handoff Info PPI to persist vectors used by Debug Agent
+    //
+    Status = PeiServicesInstallPpi (&mVectorHandoffInfoPpiList[0]);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((EFI_D_ERROR, "DebugAgent: Failed to install Vector Handoff Info PPI!\n"));
+      CpuDeadLoop ();
     }
     //
     // Set up IDT entries
@@ -472,7 +539,10 @@ InitializeDebugAgent (
     // If memery has been ready, the callback funtion will be invoked immediately
     //
     Status = PeiServicesNotifyPpi (&mMemoryDiscoveredNotifyList[0]);
-    ASSERT_EFI_ERROR (Status);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((EFI_D_ERROR, "DebugAgent: Failed to register memory discovered callback function!\n"));
+      CpuDeadLoop ();
+    }
     //
     // Set HOB check flag if memory has not been ready yet
     //

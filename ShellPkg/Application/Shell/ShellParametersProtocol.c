@@ -2,6 +2,7 @@
   Member functions of EFI_SHELL_PARAMETERS_PROTOCOL and functions for creation,
   manipulation, and initialization of EFI_SHELL_PARAMETERS_PROTOCOL.
 
+  Copyright (c) 2013 Hewlett-Packard Development Company, L.P.
   Copyright (c) 2009 - 2013, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -538,6 +539,35 @@ FixFileName (
 }
 
 /**
+  Fix a string to only have the environment variable name, removing starting at the first space of whatever is quoted and removing the leading and trailing %.
+
+  @param[in]  FileName    The filename to start with.
+
+  @retval NULL  FileName was invalid.
+  @return       The modified FileName.
+**/
+CHAR16*
+EFIAPI
+FixVarName (
+  IN CHAR16 *FileName
+  )
+{
+  CHAR16  *Copy;
+  CHAR16  *TempLocation;
+
+  Copy = FileName;
+
+  if (FileName[0] == L'%') {
+    Copy = FileName+1;
+    if ((TempLocation = StrStr(Copy , L"%")) != NULL) {
+      TempLocation[0] = CHAR_NULL;
+    }    
+  }
+
+  return (FixFileName(Copy));
+}
+
+/**
   Funcion will replace the current StdIn and StdOut in the ShellParameters protocol
   structure by parsing NewCommandLine.  The current values are returned to the
   user.
@@ -913,17 +943,17 @@ UpdateStdInStdOutStdErr(
       }
     }
     if (StdErrVarName  != NULL) {
-      if ((StdErrVarName     = FixFileName(StdErrVarName)) == NULL) {
+      if ((StdErrVarName     = FixVarName(StdErrVarName)) == NULL) {
         Status = EFI_INVALID_PARAMETER;
       }
     }
     if (StdOutVarName  != NULL) {
-      if ((StdOutVarName     = FixFileName(StdOutVarName)) == NULL) {
+      if ((StdOutVarName     = FixVarName(StdOutVarName)) == NULL) {
         Status = EFI_INVALID_PARAMETER;
       }
     }
     if (StdInVarName   != NULL) {
-      if ((StdInVarName      = FixFileName(StdInVarName)) == NULL) {
+      if ((StdInVarName      = FixVarName(StdInVarName)) == NULL) {
         Status = EFI_INVALID_PARAMETER;
       }
     }
@@ -1008,7 +1038,7 @@ UpdateStdInStdOutStdErr(
         }
         if (!EFI_ERROR(Status)) {
           ShellParameters->StdErr = TempHandle;
-          gST->StdErr = CreateSimpleTextOutOnFile(TempHandle, &gST->StandardErrorHandle);
+          gST->StdErr = CreateSimpleTextOutOnFile(TempHandle, &gST->StandardErrorHandle, gST->StdErr);
         }
       }
 
@@ -1051,7 +1081,7 @@ UpdateStdInStdOutStdErr(
           }
           if (!EFI_ERROR(Status)) {
             ShellParameters->StdOut = TempHandle;
-            gST->ConOut = CreateSimpleTextOutOnFile(TempHandle, &gST->ConsoleOutHandle);
+            gST->ConOut = CreateSimpleTextOutOnFile(TempHandle, &gST->ConsoleOutHandle, gST->ConOut);
           }
         }
       }
@@ -1069,7 +1099,7 @@ UpdateStdInStdOutStdErr(
         TempHandle = CreateFileInterfaceEnv(StdOutVarName);
         ASSERT(TempHandle != NULL);
         ShellParameters->StdOut = TempHandle;
-        gST->ConOut = CreateSimpleTextOutOnFile(TempHandle, &gST->ConsoleOutHandle);
+        gST->ConOut = CreateSimpleTextOutOnFile(TempHandle, &gST->ConsoleOutHandle, gST->ConOut);
       }
 
       //
@@ -1085,7 +1115,7 @@ UpdateStdInStdOutStdErr(
         TempHandle = CreateFileInterfaceEnv(StdErrVarName);
         ASSERT(TempHandle != NULL);
         ShellParameters->StdErr = TempHandle;
-        gST->StdErr = CreateSimpleTextOutOnFile(TempHandle, &gST->StandardErrorHandle);
+        gST->StdErr = CreateSimpleTextOutOnFile(TempHandle, &gST->StandardErrorHandle, gST->StdErr);
       }
 
       //

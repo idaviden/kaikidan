@@ -155,7 +155,6 @@
 
   # Ethernet (SMSC 91C111)
   gArmPlatformTokenSpaceGuid.PcdLan91xDxeBaseAddress|0x1A000000
-
   #
   # ARM OS Loader
   #
@@ -195,7 +194,7 @@
   ArmPlatformPkg/Sec/Sec.inf {
     <LibraryClasses>
       # Use the implementation which set the Secure bits
-      ArmGicLib|ArmPkg/Drivers/PL390Gic/PL390GicSecLib.inf
+      ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicSecLib.inf
   }
 
   #
@@ -259,7 +258,7 @@
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf
 
-  ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
+  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
 !ifndef ARM_FOUNDATION_FVP

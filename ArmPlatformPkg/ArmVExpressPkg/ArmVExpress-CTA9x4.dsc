@@ -92,7 +92,7 @@
 ################################################################################
 
 [PcdsFeatureFlag.common]
-!ifdef EDK2_ARMVE_STANDALONE
+!if $(EDK2_ARMVE_STANDALONE) == 1
   gArmPlatformTokenSpaceGuid.PcdStandalone|TRUE
 !else
   gArmPlatformTokenSpaceGuid.PcdStandalone|FALSE
@@ -178,7 +178,7 @@
   gArmPlatformTokenSpaceGuid.PcdPL180MciBaseAddress|0x10005000
   
   #
-  # ARM PL390 General Interrupt Controller
+  # ARM General Interrupt Controller
   #
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x1e001000
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x1e000100
@@ -223,7 +223,7 @@
   ArmPlatformPkg/Sec/Sec.inf {
     <LibraryClasses>
       # Use the implementation which set the Secure bits
-      ArmGicLib|ArmPkg/Drivers/PL390Gic/PL390GicSecLib.inf
+      ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicSecLib.inf
   }
   
   #
@@ -296,7 +296,7 @@
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   ArmPkg/Drivers/AcpiTables/rtsm_ve-v7/AcpiTables.inf
 
-  ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
+  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPlatformPkg/Drivers/SP804TimerDxe/SP804TimerDxe.inf
   ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/PL111LcdGraphicsOutputDxe.inf
