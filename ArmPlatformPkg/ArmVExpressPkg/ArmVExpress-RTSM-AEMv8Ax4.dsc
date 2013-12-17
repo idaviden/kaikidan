@@ -137,7 +137,7 @@
   gArmPlatformTokenSpaceGuid.PcdPL180MciBaseAddress|0x1C050000
  
   #
-  # ARM PL390 General Interrupt Controller
+  # ARM General Interrupt Controller
   #
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x2C001000
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C002000
@@ -175,7 +175,7 @@
   ArmPlatformPkg/Sec/Sec.inf {
     <LibraryClasses>
       # Use the implementation which set the Secure bits
-      ArmGicLib|ArmPkg/Drivers/PL390Gic/PL390GicSecLib.inf
+      ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicSecLib.inf
   }
  
   #
@@ -247,13 +247,14 @@
   MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf
-  #^M
-  # SMBIOS Support^M
-  #^M
+
+  #
+  # SMBIOS Support
+  #
   MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
   ArmPkg/Drivers/UpdateSmbios/UpdateSmbios.inf
 
-  ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
+  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
   ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/PL111LcdGraphicsOutputDxe.inf

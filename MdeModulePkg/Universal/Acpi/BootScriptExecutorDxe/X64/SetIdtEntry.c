@@ -21,7 +21,6 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #define IA32_PG_PS                  BIT7
 
 UINT64                             mPhyMask;
-BOOLEAN                            mPage1GSupport;
 VOID                               *mOriginalHandler;
 UINTN                              mS3NvsPageTableAddress;
 
@@ -47,23 +46,18 @@ HookPageFaultHandler (
   )
 {
   UINT32         RegEax;
-  UINT32         RegEdx;
+  UINT8          PhysicalAddressBits;
   UINTN          PageFaultHandlerHookAddress;
 
-  AsmCpuid (0x80000008, &RegEax, NULL, NULL, NULL);
-  mPhyMask = LShiftU64 (1, (UINT8)RegEax) - 1;
-  mPhyMask &= (1ull << 48) - SIZE_4KB;
-
-  mPage1GSupport = FALSE;
-  if (PcdGetBool(PcdUse1GPageTable)) {
-    AsmCpuid (0x80000000, &RegEax, NULL, NULL, NULL);
-    if (RegEax >= 0x80000001) {
-      AsmCpuid (0x80000001, NULL, NULL, NULL, &RegEdx);
-      if ((RegEdx & BIT26) != 0) {
-        mPage1GSupport = TRUE;
-      }
-    }
+  AsmCpuid (0x80000000, &RegEax, NULL, NULL, NULL);
+  if (RegEax >= 0x80000008) {
+    AsmCpuid (0x80000008, &RegEax, NULL, NULL, NULL);
+    PhysicalAddressBits = (UINT8) RegEax;
+  } else {
+    PhysicalAddressBits = 36;
   }
+  mPhyMask = LShiftU64 (1, PhysicalAddressBits) - 1;
+  mPhyMask &= (1ull << 48) - SIZE_4KB;
 
   //
   // Set Page Fault entry to catch >4G access
@@ -99,6 +93,7 @@ SetIdtEntry (
   IA32_IDT_GATE_DESCRIPTOR                      *IdtEntry;
   IA32_DESCRIPTOR                               *IdtDescriptor;
   UINTN                                         S3DebugBuffer;
+  EFI_STATUS                                    Status;
 
   //
   // Restore IDT for debug
@@ -109,7 +104,8 @@ SetIdtEntry (
   //
   // Setup the default CPU exception handlers
   //
-  SetupCpuExceptionHandlers ();
+  Status = InitializeCpuExceptionHandlers (NULL);
+  ASSERT_EFI_ERROR (Status);
 
   DEBUG_CODE (
     //

@@ -81,11 +81,11 @@
   #
   # NV Storage PCDs. Use base of 0x0C000000 for NOR1
   #
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase|0x0FF00000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase|0x0c000000
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize|0x00040000
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase|0x0FF40000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase|0x0c040000
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize|0x00040000
-  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase|0x0FF80000
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase|0x0c080000
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize|0x00040000
 
   gArmTokenSpaceGuid.PcdVFPEnabled|1
@@ -136,7 +136,7 @@
   gArmPlatformTokenSpaceGuid.PcdPL180MciBaseAddress|0x1C050000
   
   #
-  # ARM PL390 General Interrupt Controller
+  # ARM General Interrupt Controller
   #
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x2C001000
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C002000
@@ -153,7 +153,7 @@
   gArmPlatformTokenSpaceGuid.PcdDefaultBootDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/uImage"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootInitrdPath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/uInitrd"
   gArmPlatformTokenSpaceGuid.PcdDefaultFdtLocalDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/rtsm\\rtsm_ve-ca15x1.dtb"
-  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0,38400n8 root=/dev/mmcblk0p2 rootwait ro androidboot.console=ttyAMA0 mmci.fmax=12000000"
+  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0,38400n8 rootwait root=/dev/mmcblk0p2"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootType|3
   gArmPlatformTokenSpaceGuid.PcdFdtDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/rtsm\\rtsm_ve-ca15x1.dtb"
 
@@ -180,7 +180,7 @@
   ArmPlatformPkg/Sec/Sec.inf {
     <LibraryClasses>
       # Use the implementation which set the Secure bits
-      ArmGicLib|ArmPkg/Drivers/PL390Gic/PL390GicSecLib.inf
+      ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicSecLib.inf
   }
   
   #
@@ -246,14 +246,7 @@
 
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
-  #
-  # ACPI Support
-  #
-  MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
-  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
-  ArmPkg/Drivers/AcpiTables/rtsm_ve-v7/AcpiTables.inf
-
-  ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
+  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
   ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/PL111LcdGraphicsOutputDxe.inf

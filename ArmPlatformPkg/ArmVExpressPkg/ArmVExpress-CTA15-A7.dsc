@@ -43,8 +43,8 @@
 
   #DebugAgentTimerLib|ArmPlatformPkg/ArmVExpressPkg/Library/DebugAgentTimerLib/DebugAgentTimerLib.inf
 
-  # ARM PL390 General Interrupt Driver in Secure and Non-secure
-  ArmGicLib|ArmPkg/Drivers/PL390Gic/PL390GicLib.inf
+  # ARM General Interrupt Driver in Secure and Non-secure
+  ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicLib.inf
 
   LcdPlatformLib|ArmPlatformPkg/ArmVExpressPkg/Library/HdLcdArmVExpressLib/HdLcdArmVExpressLib.inf
   
@@ -167,7 +167,7 @@
   
   
   #
-  # ARM PL390 General Interrupt Controller
+  # ARM General Interrupt Controller
   #
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x2C001000
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C002000
@@ -184,7 +184,7 @@
   gArmPlatformTokenSpaceGuid.PcdDefaultBootDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/uImage"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootInitrdPath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/uInitrd"
   gArmPlatformTokenSpaceGuid.PcdDefaultFdtLocalDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/v2p-ca15-tc2.dtb"
-  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0,38400n8 root=/dev/mmcblk0p2 rootwait ro androidboot.console=ttyAMA0"
+  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0,38400n8 rootwait root=/dev/mmcblk0p2"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootType|3
   gArmPlatformTokenSpaceGuid.PcdFdtDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/v2p-ca15-tc2.dtb"
 
@@ -251,14 +251,7 @@
 
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 
-  #
-  # ACPI Support
-  #
-  MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
-  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
-  ArmPkg/Drivers/AcpiTables/rtsm_ve-v7/AcpiTables.inf
-
-  ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
+  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   #ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/PL111LcdGraphicsOutputDxe.inf
   ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/HdLcdGraphicsOutputDxe.inf
@@ -284,6 +277,8 @@
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+
+  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
 
   #
   # Bds

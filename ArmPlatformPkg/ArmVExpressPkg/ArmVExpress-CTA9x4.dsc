@@ -92,7 +92,7 @@
 ################################################################################
 
 [PcdsFeatureFlag.common]
-!ifdef EDK2_ARMVE_STANDALONE
+!if $(EDK2_ARMVE_STANDALONE) == 1
   gArmPlatformTokenSpaceGuid.PcdStandalone|TRUE
 !else
   gArmPlatformTokenSpaceGuid.PcdStandalone|FALSE
@@ -178,7 +178,7 @@
   gArmPlatformTokenSpaceGuid.PcdPL180MciBaseAddress|0x10005000
   
   #
-  # ARM PL390 General Interrupt Controller
+  # ARM General Interrupt Controller
   #
   gArmTokenSpaceGuid.PcdGicDistributorBase|0x1e001000
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x1e000100
@@ -192,7 +192,7 @@
   gArmPlatformTokenSpaceGuid.PcdDefaultBootDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/uImage"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootInitrdPath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/uInitrd"
   gArmPlatformTokenSpaceGuid.PcdDefaultFdtLocalDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/v2p-ca9.dtb"
-  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0,38400n8 root=/dev/mmcblk0p2 rootwait ro androidboot.console=ttyAMA0"
+  gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0,38400n8 rootwait root=/dev/mmcblk0p2"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootType|3
   gArmPlatformTokenSpaceGuid.PcdFdtDevicePath|L"VenHw(09831032-6FA3-4484-AF4F-0A000A8D3A82)/HD(1,MBR,0x00000000,0x3F,0x19FC0)/v2p-ca9.dtb"
 
@@ -223,7 +223,7 @@
   ArmPlatformPkg/Sec/Sec.inf {
     <LibraryClasses>
       # Use the implementation which set the Secure bits
-      ArmGicLib|ArmPkg/Drivers/PL390Gic/PL390GicSecLib.inf
+      ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicSecLib.inf
   }
   
   #
@@ -296,7 +296,7 @@
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   ArmPkg/Drivers/AcpiTables/rtsm_ve-v7/AcpiTables.inf
 
-  ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
+  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPlatformPkg/Drivers/SP804TimerDxe/SP804TimerDxe.inf
   ArmPlatformPkg/Drivers/LcdGraphicsOutputDxe/PL111LcdGraphicsOutputDxe.inf

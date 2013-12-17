@@ -155,7 +155,6 @@
 
   # Ethernet (SMSC 91C111)
   gArmPlatformTokenSpaceGuid.PcdLan91xDxeBaseAddress|0x1A000000
-
   #
   # ARM OS Loader
   #
@@ -164,11 +163,12 @@
 !ifdef $(EDK2_USE_ANDROID_CONFIG)
   gArmPlatformTokenSpaceGuid.PcdDefaultBootDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/kernel"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootInitrdPath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/ramdisk.img"
+  gArmPlatformTokenSpaceGuid.PcdDefaultFdtLocalDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/fvp-base-gicv2-psci.dtb"
 !else
   gArmPlatformTokenSpaceGuid.PcdDefaultBootDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/Image"
   gArmPlatformTokenSpaceGuid.PcdDefaultBootArgument|"console=ttyAMA0 earlyprintk=pl011,0x1c090000 debug user_debug=31 loglevel=9 root=/dev/vda2"
-!endif
   gArmPlatformTokenSpaceGuid.PcdDefaultFdtLocalDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/fdt.dtb"
+!endif
   gArmPlatformTokenSpaceGuid.PcdDefaultBootType|3
   gArmPlatformTokenSpaceGuid.PcdFdtDevicePath|L"VenHw(C5B9C74A-6D72-4719-99AB-C59F199091EB)/fdt.dtb"
 
@@ -195,7 +195,7 @@
   ArmPlatformPkg/Sec/Sec.inf {
     <LibraryClasses>
       # Use the implementation which set the Secure bits
-      ArmGicLib|ArmPkg/Drivers/PL390Gic/PL390GicSecLib.inf
+      ArmGicLib|ArmPkg/Drivers/ArmGic/ArmGicSecLib.inf
   }
 
   #
@@ -259,7 +259,7 @@
   MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   ArmPkg/Drivers/AcpiTables/rtsm_ve-aemv8a/AcpiTables.inf
 
-  ArmPkg/Drivers/PL390Gic/PL390GicDxe.inf
+  ArmPkg/Drivers/ArmGic/ArmGicDxe.inf
   ArmPlatformPkg/Drivers/NorFlashDxe/NorFlashDxe.inf
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
 !ifndef ARM_FOUNDATION_FVP

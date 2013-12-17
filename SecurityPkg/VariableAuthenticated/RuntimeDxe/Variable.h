@@ -143,8 +143,7 @@ FlushHobVariableToFlash (
   VariableBase. Fault Tolerant Write protocol is used for writing.
 
   @param  VariableBase   Base address of the variable to write.
-  @param  Buffer         Point to the data buffer.
-  @param  BufferSize     The number of bytes of the data Buffer.
+  @param  VariableBuffer Point to the variable data buffer.
 
   @retval EFI_SUCCESS    The function completed successfully.
   @retval EFI_NOT_FOUND  Fail to locate Fault Tolerant Write protocol.
@@ -154,8 +153,7 @@ FlushHobVariableToFlash (
 EFI_STATUS
 FtwVariableSpace (
   IN EFI_PHYSICAL_ADDRESS   VariableBase,
-  IN UINT8                  *Buffer,
-  IN UINTN                  BufferSize
+  IN VARIABLE_STORE_HEADER  *VariableBuffer
   );
 
 /**
@@ -402,11 +400,12 @@ VariableCommonInitialize (
   @param[in]      IsVolatile              The variable store is volatile or not;
                                           if it is non-volatile, need FTW.
   @param[in, out] UpdatingPtrTrack        Pointer to updating variable pointer track structure.
+  @param[in]      NewVariable             Pointer to new variable.
+  @param[in]      NewVariableSize         New variable size.
   @param[in]      ReclaimPubKeyStore      Reclaim for public key database or not.
-  @param[in]      ReclaimAnyway           If TRUE, do reclaim anyway.
   
   @return EFI_SUCCESS                  Reclaim operation has finished successfully.
-  @return EFI_OUT_OF_RESOURCES         No enough memory resources.
+  @return EFI_OUT_OF_RESOURCES         No enough memory resources or variable space.
   @return EFI_DEVICE_ERROR             The public key database doesn't exist.
   @return Others                       Unexpect error happened during reclaim operation.
 
@@ -417,8 +416,9 @@ Reclaim (
   OUT    UINTN                        *LastVariableOffset,
   IN     BOOLEAN                      IsVolatile,
   IN OUT VARIABLE_POINTER_TRACK       *UpdatingPtrTrack,
-  IN     BOOLEAN                      ReclaimPubKeyStore,
-  IN     BOOLEAN                      ReclaimAnyway
+  IN     VARIABLE_HEADER              *NewVariable,
+  IN     UINTN                        NewVariableSize,
+  IN     BOOLEAN                      ReclaimPubKeyStore
   );
 
 /**
