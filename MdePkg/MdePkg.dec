@@ -3,9 +3,9 @@
 # This Package provides all definitions(including functions, MACROs, structures and library classes)
 # and libraries instances, which are defined in MDE Specification.
 # It also provides the definitions(including PPIs/PROTOCOLs/GUIDs) of
-# EFI1.10/UEFI2.3.1/PI1.2 and some Industry Standards.
+# EFI1.10/UEFI2.4/PI1.3 and some Industry Standards.
 #
-# Copyright (c) 2007 - 2013, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
 # Portions copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
 #
 # This program and the accompanying materials are licensed and made available under
@@ -23,7 +23,7 @@
   DEC_SPECIFICATION              = 0x00010005
   PACKAGE_NAME                   = MdePkg
   PACKAGE_GUID                   = 1E73767F-8F52-4603-AEB4-F29B510B6766
-  PACKAGE_VERSION                = 1.03
+  PACKAGE_VERSION                = 1.04
 
 
 [Includes]
@@ -528,6 +528,11 @@
   gEfiRngAlgorithmX931AesGuid        = { 0xacd03321, 0x777e, 0x4d3d, {0xb1, 0xc8, 0x20, 0xcf, 0xd8, 0x88, 0x20, 0xc9 }}
   gEfiRngAlgorithmRaw                = { 0xe43176d7, 0xb6e8, 0x4827, {0xb7, 0x84, 0x7f, 0xfd, 0xc4, 0xb6, 0x85, 0x61 }}
 
+  ## Include/Protocol/AdapterInformation.h
+  gEfiAdapterInfoMediaStateGuid       = { 0xD7C74207, 0xA831, 0x4A26, {0xB1, 0xF5, 0xD1, 0x93, 0x06, 0x5C, 0xE8, 0xB6 }}
+  gEfiAdapterInfoNetworkBootGuid      = { 0x1FBD2960, 0x4130, 0x41E5, {0x94, 0xAC, 0xD2, 0xCF, 0x03, 0x7F, 0xB3, 0x7C }}
+  gEfiAdapterInfoSanMacAddressGuid    = { 0x114da5ef, 0x2cf1, 0x4e12, {0x9b, 0xbb, 0xc4, 0x70, 0xb5, 0x52, 0x5, 0xd9 }}
+	
   #
   # GUID defined in PI1.0
   #
@@ -1353,6 +1358,9 @@
 
   ## Include/Protocol/Rng.h
   gEfiRngProtocolGuid                  = { 0x3152bca5, 0xeade, 0x433d, {0x86, 0x2e, 0xc0, 0x1c, 0xdc, 0x29, 0x1f, 0x44 }}
+  
+  ## Include/Protocol/AdapterInformation.h
+  gEfiAdapterInformationProtocolGuid	 = { 0xE5DD1403, 0xD622, 0xC24E, {0x84, 0x88, 0xC7, 0x1B, 0x17, 0xF5, 0xE8, 0x02 }}
 
 [PcdsFeatureFlag]
   ## If TRUE, the component name protocol will not be installed.

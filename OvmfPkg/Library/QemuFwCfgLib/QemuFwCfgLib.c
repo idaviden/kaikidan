@@ -1,6 +1,7 @@
 /** @file
 
   Copyright (c) 2011 - 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (C) 2013, Red Hat, Inc.
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -20,8 +21,6 @@
 #include <Library/QemuFwCfgLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
-
-STATIC BOOLEAN mQemuFwCfgSupported = FALSE;
 
 
 /**
@@ -75,24 +74,6 @@ IoWriteFifo8 (
   IN      UINTN                     Count,
   OUT     VOID                      *Buffer
   );
-
-
-/**
-  Returns a boolean indicating if the firmware configuration interface
-  is available or not.
-
-  @retval    TRUE   The interface is available
-  @retval    FALSE  The interface is not available
-
-**/
-BOOLEAN
-EFIAPI
-QemuFwCfgIsAvailable (
-  VOID
-  )
-{
-  return mQemuFwCfgSupported;
-}
 
 
 /**
@@ -151,7 +132,7 @@ QemuFwCfgReadBytes (
   IN VOID                   *Buffer
   )
 {
-  if (mQemuFwCfgSupported) {
+  if (InternalQemuFwCfgIsAvailable ()) {
     InternalQemuFwCfgReadBytes (Size, Buffer);
   } else {
     ZeroMem (Buffer, Size);
@@ -176,7 +157,7 @@ QemuFwCfgWriteBytes (
   IN VOID                   *Buffer
   )
 {
-  if (mQemuFwCfgSupported) {
+  if (InternalQemuFwCfgIsAvailable ()) {
     IoWriteFifo8 (0x511, Size, Buffer);
   }
 }
@@ -262,39 +243,6 @@ QemuFwCfgRead64 (
 }
 
 
-RETURN_STATUS
-EFIAPI
-QemuFwCfgInitialize (
-  VOID
-  )
-{
-  UINT32 Signature;
-  UINT32 Revision;
-
-  //
-  // Enable the access routines while probing to see if it is supported.
-  //
-  mQemuFwCfgSupported = TRUE;
-
-  QemuFwCfgSelectItem (QemuFwCfgItemSignature);
-  Signature = QemuFwCfgRead32 ();
-  DEBUG ((EFI_D_INFO, "FW CFG Signature: 0x%x\n", Signature));
-  QemuFwCfgSelectItem (QemuFwCfgItemInterfaceVersion);
-  Revision = QemuFwCfgRead32 ();
-  DEBUG ((EFI_D_INFO, "FW CFG Revision: 0x%x\n", Revision));
-  if ((Signature != SIGNATURE_32 ('Q', 'E', 'M', 'U')) ||
-      (Revision < 1)
-     ) {
-    DEBUG ((EFI_D_INFO, "QemuFwCfg interface not supported.\n"));
-    mQemuFwCfgSupported = FALSE;
-    return RETURN_SUCCESS;
-  }
-
-  DEBUG ((EFI_D_INFO, "QemuFwCfg interface is supported.\n"));
-  return RETURN_SUCCESS;
-}
-
-
 /**
   Find the configuration item corresponding to the firmware configuration file.
 
@@ -319,7 +267,7 @@ QemuFwCfgFindFile (
   UINT32 Count;
   UINT32 Idx;
 
-  if (!mQemuFwCfgSupported) {
+  if (!InternalQemuFwCfgIsAvailable ()) {
     return RETURN_UNSUPPORTED;
   }
 

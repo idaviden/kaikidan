@@ -56,7 +56,8 @@
                        one of UINT8, UINT16, UINT32, UINT64.
 
 
-  @return  Status code returned by Virtio->WriteDevice() / Virtio->ReadDevice().
+  @return  Status code returned by Virtio->WriteDevice() /
+           Virtio->ReadDevice().
 
 **/
 
@@ -531,8 +532,8 @@ VirtioBlkDriverBindingSupported (
 
   //
   // Attempt to open the device with the VirtIo set of interfaces. On success,
-  // the protocol is "instantiated" for the VirtIo device. Covers duplicate open
-  // attempts (EFI_ALREADY_STARTED).
+  // the protocol is "instantiated" for the VirtIo device. Covers duplicate
+  // open attempts (EFI_ALREADY_STARTED).
   //
   Status = gBS->OpenProtocol (
                   DeviceHandle,               // candidate device
@@ -594,7 +595,14 @@ VirtioBlkInit (
   UINT32     Features;
   UINT64     NumSectors;
   UINT32     BlockSize;
+  UINT8      PhysicalBlockExp;
+  UINT8      AlignmentOffset;
+  UINT32     OptIoSize;
   UINT16     QueueSize;
+
+  PhysicalBlockExp = 0;
+  AlignmentOffset = 0;
+  OptIoSize = 0;
 
   //
   // Execute virtio-0.9.5, 2.2.1 Device Initialization Sequence.
@@ -622,7 +630,7 @@ VirtioBlkInit (
   //
   Status = Dev->VirtIo->SetPageSize (Dev->VirtIo, EFI_PAGE_SIZE);
   if (EFI_ERROR (Status)) {
-    goto ReleaseQueue;
+    goto Failed;
   }
 
   //
@@ -661,6 +669,28 @@ VirtioBlkInit (
     BlockSize = 512;
   }
 
+  if (Features & VIRTIO_BLK_F_TOPOLOGY) {
+    Status = VIRTIO_CFG_READ (Dev, Topology.PhysicalBlockExp,
+               &PhysicalBlockExp);
+    if (EFI_ERROR (Status)) {
+      goto Failed;
+    }
+    if (PhysicalBlockExp >= 32) {
+      Status = EFI_UNSUPPORTED;
+      goto Failed;
+    }
+
+    Status = VIRTIO_CFG_READ (Dev, Topology.AlignmentOffset, &AlignmentOffset);
+    if (EFI_ERROR (Status)) {
+      goto Failed;
+    }
+
+    Status = VIRTIO_CFG_READ (Dev, Topology.OptIoSize, &OptIoSize);
+    if (EFI_ERROR (Status)) {
+      goto Failed;
+    }
+  }
+
   //
   // step 4b -- allocate virtqueue
   //
@@ -683,19 +713,24 @@ VirtioBlkInit (
   }
 
   //
-  // Additional steps for MMIO: align the queue appropriately, and set the size
-  Dev->VirtIo->SetQueueNum (Dev->VirtIo, QueueSize);
+  // Additional steps for MMIO: align the queue appropriately, and set the
+  // size. If anything fails from here on, we must release the ring resources.
+  //
+  Status = Dev->VirtIo->SetQueueNum (Dev->VirtIo, QueueSize);
+  if (EFI_ERROR (Status)) {
+    goto ReleaseQueue;
+  }
+
   Status = Dev->VirtIo->SetQueueAlign (Dev->VirtIo, EFI_PAGE_SIZE);
   if (EFI_ERROR (Status)) {
     goto ReleaseQueue;
   }
 
   //
-  // step 4c -- Report GPFN (guest-physical frame number) of queue. If anything
-  // fails from here on, we must release the ring resources.
+  // step 4c -- Report GPFN (guest-physical frame number) of queue.
   //
   Status = Dev->VirtIo->SetQueueAddress (Dev->VirtIo,
-      (UINTN) Dev->Ring.Base >> EFI_PAGE_SHIFT);
+      (UINT32) ((UINTN) Dev->Ring.Base >> EFI_PAGE_SHIFT));
   if (EFI_ERROR (Status)) {
     goto ReleaseQueue;
   }
@@ -722,9 +757,8 @@ VirtioBlkInit (
   }
 
   //
-  // Populate the exported interface's attributes; see UEFI spec v2.3.1 +
-  // Errata C, 12.8 EFI Block I/O Protocol. We stick to the lowest possible
-  // EFI_BLOCK_IO_PROTOCOL revision for now.
+  // Populate the exported interface's attributes; see UEFI spec v2.4, 12.9 EFI
+  // Block I/O Protocol.
   //
   Dev->BlockIo.Revision              = 0;
   Dev->BlockIo.Media                 = &Dev->BlockIoMedia;
@@ -742,6 +776,24 @@ VirtioBlkInit (
   Dev->BlockIoMedia.IoAlign          = 0;
   Dev->BlockIoMedia.LastBlock        = DivU64x32 (NumSectors,
                                          BlockSize / 512) - 1;
+
+  DEBUG ((DEBUG_INFO, "%a: LbaSize=0x%x[B] NumBlocks=0x%Lx[Lba]\n",
+    __FUNCTION__, Dev->BlockIoMedia.BlockSize,
+    Dev->BlockIoMedia.LastBlock + 1));
+
+  if (Features & VIRTIO_BLK_F_TOPOLOGY) {
+    Dev->BlockIo.Revision = EFI_BLOCK_IO_PROTOCOL_REVISION3;
+
+    Dev->BlockIoMedia.LowestAlignedLba = AlignmentOffset;
+    Dev->BlockIoMedia.LogicalBlocksPerPhysicalBlock = 1u << PhysicalBlockExp;
+    Dev->BlockIoMedia.OptimalTransferLengthGranularity = OptIoSize;
+
+    DEBUG ((DEBUG_INFO, "%a: FirstAligned=0x%Lx[Lba] PhysBlkSize=0x%x[Lba]\n",
+      __FUNCTION__, Dev->BlockIoMedia.LowestAlignedLba,
+      Dev->BlockIoMedia.LogicalBlocksPerPhysicalBlock));
+    DEBUG ((DEBUG_INFO, "%a: OptimalTransferLengthGranularity=0x%x[Lba]\n",
+      __FUNCTION__, Dev->BlockIoMedia.OptimalTransferLengthGranularity));
+  }
   return EFI_SUCCESS;
 
 ReleaseQueue:
@@ -839,10 +891,6 @@ VirtioBlkDriverBindingStart (
                   DeviceHandle, EFI_OPEN_PROTOCOL_BY_DRIVER);
   if (EFI_ERROR (Status)) {
     goto FreeVirtioBlk;
-  }
-
-  if (Dev->VirtIo->SubSystemDeviceId != VIRTIO_SUBSYSTEM_BLOCK_DEVICE) {
-    return EFI_UNSUPPORTED;
   }
 
   //

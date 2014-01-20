@@ -64,7 +64,9 @@ VirtioMmioInit (
   UINT32     VendorId;
   UINT32     Version;
 
+  //
   // Initialize VirtIo Mmio Device
+  //
   CopyMem (&Device->VirtioDevice, &mMmioDeviceProtocolTemplate,
         sizeof (VIRTIO_DEVICE_PROTOCOL));
   Device->BaseAddress = BaseAddress;
@@ -72,7 +74,9 @@ VirtioMmioInit (
   Device->VirtioDevice.SubSystemDeviceId =
           MmioRead32 (BaseAddress + VIRTIO_MMIO_OFFSET_DEVICE_ID);
 
+  //
   // Double-check MMIO-specific values
+  //
   MagicValue = VIRTIO_CFG_READ (Device, VIRTIO_MMIO_OFFSET_MAGIC);
   if (MagicValue != VIRTIO_MMIO_MAGIC) {
     return EFI_UNSUPPORTED;
@@ -83,15 +87,18 @@ VirtioMmioInit (
     return EFI_UNSUPPORTED;
   }
 
+  //
   // Double-check MMIO-specific values
+  //
   VendorId = VIRTIO_CFG_READ (Device, VIRTIO_MMIO_OFFSET_VENDOR_ID);
   if (VendorId != VIRTIO_VENDOR_ID) {
+    //
     // The ARM Base and Foundation Models do not report a valid VirtIo VendorId.
     // They return a value of 0x0 for the VendorId.
+    //
     DEBUG((EFI_D_WARN, "VirtioMmioInit: Warning: The VendorId (0x%X) does not "
                        "match the VirtIo VendorId (0x%X).\n",
                        VendorId, VIRTIO_VENDOR_ID));
-    //return EFI_UNSUPPORTED;
   }
 
   return EFI_SUCCESS;
@@ -114,8 +121,10 @@ VirtioMmioUninit (
   IN VIRTIO_MMIO_DEVICE *Device
   )
 {
+  //
   // Note: This function mirrors VirtioMmioInit() that does not allocate any
   //       resources - there's nothing to free here.
+  //
 }
 
 EFI_STATUS
@@ -134,7 +143,9 @@ VirtioMmioInstallDevice (
     return EFI_INVALID_PARAMETER;
   }
 
+  //
   // Allocate VIRTIO_MMIO_DEVICE
+  //
   VirtIo = AllocateZeroPool (sizeof (VIRTIO_MMIO_DEVICE));
   if (VirtIo == NULL) {
     return EFI_OUT_OF_RESOURCES;
@@ -147,7 +158,9 @@ VirtioMmioInstallDevice (
     goto FreeVirtioMem;
   }
 
+  //
   // Install VIRTIO_DEVICE_PROTOCOL to Handle
+  //
   Status = gBS->InstallProtocolInterface (&Handle,
                   &gVirtioDeviceProtocolGuid, EFI_NATIVE_INTERFACE,
                   &VirtIo->VirtioDevice);
@@ -186,10 +199,14 @@ VirtioMmioUninstallDevice (
     return Status;
   }
 
+  //
   // Get the MMIO device from the VirtIo Device instance
+  //
   MmioDevice = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (VirtioDevice);
 
+  //
   // Uninstall the protocol interface
+  //
   Status = gBS->UninstallProtocolInterface (DeviceHandle,
       &gVirtioDeviceProtocolGuid, &MmioDevice->VirtioDevice
       );
@@ -197,8 +214,11 @@ VirtioMmioUninstallDevice (
     return Status;
   }
 
+  //
   // Uninitialize the VirtIo Device
+  //
   VirtioMmioUninit (MmioDevice);
+  FreePool (MmioDevice);
 
   return EFI_SUCCESS;
 }

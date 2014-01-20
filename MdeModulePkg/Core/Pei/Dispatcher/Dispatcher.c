@@ -1,7 +1,7 @@
 /** @file
   EFI PEI Core dispatch services
   
-Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -49,7 +49,7 @@ DiscoverPeimsAndOrderWithApriori (
   UINTN                               PeimIndex;
   UINTN                               PeimCount;
   EFI_GUID                            *Guid;
-  EFI_PEI_FILE_HANDLE                 TempFileHandles[FixedPcdGet32 (PcdPeiCoreMaxPeimPerFv)];
+  EFI_PEI_FILE_HANDLE                 TempFileHandles[FixedPcdGet32 (PcdPeiCoreMaxPeimPerFv) + 1];
   EFI_GUID                            FileGuid[FixedPcdGet32 (PcdPeiCoreMaxPeimPerFv)];
   EFI_PEI_FIRMWARE_VOLUME_PPI         *FvPpi;
   EFI_FV_FILE_INFO                    FileInfo;
@@ -75,20 +75,21 @@ DiscoverPeimsAndOrderWithApriori (
   //
   // Go ahead to scan this Fv, and cache FileHandles within it.
   //
-  for (PeimCount = 0; PeimCount < FixedPcdGet32 (PcdPeiCoreMaxPeimPerFv); PeimCount++) {
+  Status = EFI_NOT_FOUND;
+  for (PeimCount = 0; PeimCount <= FixedPcdGet32 (PcdPeiCoreMaxPeimPerFv); PeimCount++) {
     Status = FvPpi->FindFileByType (FvPpi, PEI_CORE_INTERNAL_FFS_FILE_DISPATCH_TYPE, CoreFileHandle->FvHandle, &FileHandle);
-    if (Status != EFI_SUCCESS) {
+    if (Status != EFI_SUCCESS || PeimCount == FixedPcdGet32 (PcdPeiCoreMaxPeimPerFv)) {
       break;
     }
 
     Private->CurrentFvFileHandles[PeimCount] = FileHandle;
   }
-  
+
   //
-  // Check whether the count of Peims exceeds the max support PEIMs in a FV image
-  // If more Peims are required in a FV image, PcdPeiCoreMaxPeimPerFv can be set to a larger value in DSC file.
+  // Check whether the count of files exceeds the max support files in a FV image
+  // If more files are required in a FV image, PcdPeiCoreMaxPeimPerFv can be set to a larger value in DSC file.
   //
-  ASSERT (PeimCount < FixedPcdGet32 (PcdPeiCoreMaxPeimPerFv));
+  ASSERT ((Status != EFI_SUCCESS) || (PeimCount < FixedPcdGet32 (PcdPeiCoreMaxPeimPerFv)));
 
   //
   // Get Apriori File handle
@@ -660,6 +661,7 @@ PeiDispatcher (
   PEIM_FILE_HANDLE_EXTENDED_DATA      ExtendedData;
   EFI_PEI_TEMPORARY_RAM_SUPPORT_PPI   *TemporaryRamSupportPpi;
   UINT64                              NewStackSize;
+  UINTN                               HeapTemporaryRamSize;
   EFI_PHYSICAL_ADDRESS                BaseOfNewHeap;
   EFI_PHYSICAL_ADDRESS                TopOfNewStack;
   EFI_PHYSICAL_ADDRESS                TopOfOldStack;
@@ -995,13 +997,21 @@ PeiDispatcher (
                 PeiCore (SecCoreData, NULL, Private);
               } else {
                 //
+                // Migrate the PEI Services Table pointer from temporary RAM to permanent RAM.
+                //
+                MigratePeiServicesTablePointer ();
+                
+                //
                 // Heap Offset
                 //
                 BaseOfNewHeap = TopOfNewStack;
                 HoleMemBase   = TopOfNewStack;
                 HoleMemSize   = TemporaryRamSize - PeiTemporaryRamSize - TemporaryStackSize;
                 if (HoleMemSize != 0) {
-                  BaseOfNewHeap = BaseOfNewHeap + HoleMemSize;
+                  //
+                  // Make sure HOB List start address is 8 byte alignment.
+                  //
+                  BaseOfNewHeap = ALIGN_VALUE (BaseOfNewHeap + HoleMemSize, 8);
                 }
                 if (BaseOfNewHeap >= (UINTN)SecCoreData->PeiTemporaryRamBase) {
                   Private->HeapOffsetPositive = TRUE;
@@ -1014,7 +1024,9 @@ PeiDispatcher (
                 //
                 // Migrate Heap
                 //
-                CopyMem ((UINT8 *) (UINTN) BaseOfNewHeap, (UINT8 *) PeiTemporaryRamBase, PeiTemporaryRamSize);
+                HeapTemporaryRamSize = (UINTN) (Private->HobList.HandoffInformationTable->EfiFreeMemoryBottom - Private->HobList.HandoffInformationTable->EfiMemoryBottom);
+                ASSERT (BaseOfNewHeap + HeapTemporaryRamSize <= Private->FreePhysicalMemoryTop);
+                CopyMem ((UINT8 *) (UINTN) BaseOfNewHeap, (UINT8 *) PeiTemporaryRamBase, HeapTemporaryRamSize);
                 
                 //
                 // Migrate Stack

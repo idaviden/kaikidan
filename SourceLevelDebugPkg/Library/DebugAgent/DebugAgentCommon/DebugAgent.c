@@ -4,7 +4,7 @@
   read/write debug packet to communication with HOST based on transfer
   protocol.
 
-  Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2014, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -19,7 +19,7 @@
 #include "Ia32/DebugException.h"
 
 CHAR8 mErrorMsgVersionAlert[]       = "\rThe SourceLevelDebugPkg you are using requires a newer version of the Intel(R) UDK Debugger Tool.\r\n";
-CHAR8 mErrorMsgSendInitPacket[]     = "\rSend INIT break packet and try to connect the HOST (Intel(R) UDK Debugger Tool v1.3.1) ...\r\n";
+CHAR8 mErrorMsgSendInitPacket[]     = "\rSend INIT break packet and try to connect the HOST (Intel(R) UDK Debugger Tool v1.4) ...\r\n";
 CHAR8 mErrorMsgConnectOK[]          = "HOST connection is successful!\r\n";
 CHAR8 mErrorMsgConnectFail[]        = "HOST connection is failed!\r\n";
 CHAR8 mWarningMsgIngoreBreakpoint[] = "Ignore break point in SMM for SMI issued during DXE debugging!\r\n";
@@ -572,6 +572,7 @@ DebugAgentDataMsgPrint (
   @retval EFI_SUCCESS        Read the symbol in BreakSymbol.
   @retval EFI_CRC_ERROR      CRC check fail.
   @retval EFI_TIMEOUT        Timeout occurs when reading debug packet.
+  @retval EFI_DEVICE_ERROR   Receive the old or responsed packet.
 
 **/
 EFI_STATUS
@@ -581,6 +582,8 @@ ReadRemainingBreakPacket (
   )
 {
   UINT16                     Crc;
+  DEBUG_AGENT_MAILBOX        *Mailbox;
+
   //
   // Has received start symbol, try to read the rest part
   //
@@ -599,9 +602,20 @@ ReadRemainingBreakPacket (
     DebugAgentDataMsgPrint (DEBUG_AGENT_VERBOSE, FALSE, (UINT8 *)DebugHeader, DebugHeader->Length);
     return EFI_CRC_ERROR;
   }
-
-  UpdateMailboxContent (GetMailboxPointer(), DEBUG_MAILBOX_HOST_SEQUENCE_NO_INDEX, DebugHeader->SequenceNo);
-  return EFI_SUCCESS;
+  Mailbox = GetMailboxPointer();
+  if (((DebugHeader->Command & DEBUG_COMMAND_RESPONSE) == 0) &&
+       (DebugHeader->SequenceNo == (UINT8) (Mailbox->HostSequenceNo + 1))) {
+    //
+    // Only updagte HostSequenceNo for new command packet 
+    //
+    UpdateMailboxContent (Mailbox, DEBUG_MAILBOX_HOST_SEQUENCE_NO_INDEX, DebugHeader->SequenceNo);
+    return EFI_SUCCESS;
+  } else {
+    //
+    // If one old command or response packet received, skip it
+    //
+    return EFI_DEVICE_ERROR;
+  }
 }
 
 /**

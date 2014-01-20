@@ -198,8 +198,13 @@ typedef union {
 
 //
 //  Hub Class Feature Selector for Clear Port Feature Request
+//  It's the extension of hub class feature selector of USB 2.0 in USB 3.0 Spec.
+//  For more details, Please refer to USB 3.0 Spec Table 10-7.
 //
-#define Usb3PortBHPortResetChange          29
+typedef enum {
+  Usb3PortBHPortReset          = 28,
+  Usb3PortBHPortResetChange    = 29
+} XHC_PORT_FEATURE;
 
 //
 // Structure to map the hardware port states to the
@@ -394,7 +399,7 @@ XhcClearOpRegBit (
   @param  Offset       The offset of the operational register.
   @param  Bit          The bit of the register to wait for.
   @param  WaitToSet    Wait the bit to set or clear.
-  @param  Timeout      The time to wait before abort (in millisecond, ms).
+  @param  Timeout      The time to wait before abort (in microsecond, us).
 
   @retval EFI_SUCCESS  The bit successfully changed by host controller.
   @retval EFI_TIMEOUT  The time out occurred.
@@ -516,7 +521,7 @@ XhcIsSysError (
   Reset the XHCI host controller.
 
   @param  Xhc          The XHCI Instance.
-  @param  Timeout      Time to wait before abort (in millisecond, ms).
+  @param  Timeout      Time to wait before abort (in microsecond, us).
 
   @retval EFI_SUCCESS  The XHCI host controller is reset.
   @return Others       Failed to reset the XHCI before Timeout.
@@ -532,7 +537,7 @@ XhcResetHC (
   Halt the XHCI host controller.
 
   @param  Xhc          The XHCI Instance.
-  @param  Timeout      Time to wait before abort (in millisecond, ms).
+  @param  Timeout      Time to wait before abort (in microsecond, us).
 
   @return EFI_SUCCESS  The XHCI host controller is halt.
   @return EFI_TIMEOUT  Failed to halt the XHCI before Timeout.
@@ -548,7 +553,7 @@ XhcHaltHC (
   Set the XHCI host controller to run.
 
   @param  Xhc          The XHCI Instance.
-  @param  Timeout      Time to wait before abort (in millisecond, ms).
+  @param  Timeout      Time to wait before abort (in microsecond, us).
 
   @return EFI_SUCCESS  The XHCI host controller is running.
   @return EFI_TIMEOUT  Failed to set the XHCI to run before Timeout.

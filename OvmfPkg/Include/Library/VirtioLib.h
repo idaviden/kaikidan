@@ -168,7 +168,7 @@ VirtioAppendDesc (
                           of the descriptor chain.
 
 
-  @return              Error code from VirtioWriteDevice() if it fails.
+  @return              Error code from VirtIo->SetQueueNotify() if it fails.
 
   @retval EFI_SUCCESS  Otherwise, the host processed all descriptors.
 

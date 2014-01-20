@@ -132,6 +132,7 @@
 !endif
 
 [LibraryClasses.common.SEC]
+  QemuFwCfgLib|OvmfPkg/Library/QemuFwCfgLib/QemuFwCfgSecLib.inf
 !ifdef $(DEBUG_ON_SERIAL_PORT)
   DebugLib|MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
 !else
@@ -328,6 +329,7 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase|0
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase|0
+  gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration|FALSE
 
 
 ################################################################################
@@ -393,7 +395,10 @@
   UefiCpuPkg/CpuDxe/CpuDxe.inf
   PcAtChipsetPkg/8254TimerDxe/8254Timer.inf
   PcAtChipsetPkg/PciHostBridgeDxe/PciHostBridgeDxe.inf
-  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
+  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf {
+    <LibraryClasses>
+      PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
+  }
   PcAtChipsetPkg/KbcResetDxe/Reset.inf
   MdeModulePkg/Universal/Metronome/Metronome.inf {
     <LibraryClasses>

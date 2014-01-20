@@ -4,7 +4,7 @@
 # It also provides the defintions(including PPIs/PROTOCOLs/GUIDs and library classes)
 # and libraries instances, which are used for those modules.
 #
-# Copyright (c) 2007 - 2013, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
 # This program and the accompanying materials are licensed and made available under 
 # the terms and conditions of the BSD License that accompanies this distribution.  
 # The full text of the license may be found at
@@ -20,7 +20,7 @@
   DEC_SPECIFICATION              = 0x00010005
   PACKAGE_NAME                   = MdeModulePkg
   PACKAGE_GUID                   = BA0D78D6-2CAF-414b-BD4D-B6762A894288
-  PACKAGE_VERSION                = 0.92
+  PACKAGE_VERSION                = 0.93
 
 [Includes]
   Include
@@ -522,15 +522,11 @@
   #  for a dynamic PCD used in PEI phase.
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxPeiPcdCallBackNumberPerPcdEntry|0x08|UINT32|0x0001000f
 
-  ## VPD type PCD allow developer point an absoluted physical address PcdVpdBaseAddress
-  #  to store PCD value.
-  #
-  gEfiMdeModulePkgTokenSpaceGuid.PcdVpdBaseAddress|0x0|UINT32|0x00010010
-
   ## Maximum number of FV is supported by PeiCore's dispatching.
   gEfiMdeModulePkgTokenSpaceGuid.PcdPeiCoreMaxFvSupported|6|UINT32|0x00010030
 
-  ## Maximum PEIM count in every FV is supported by PeiCore's dispatching.
+  ## Maximum File count in every FV is supported by PeiCore's dispatching.
+  #  PeiCore supported File type includes PEIM, Combined PEIM and FV.
   gEfiMdeModulePkgTokenSpaceGuid.PcdPeiCoreMaxPeimPerFv|32|UINT32|0x00010031
 
   ## Maximum stack size for PeiCore.
@@ -608,6 +604,11 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdProgressCodeS3SuspendEnd|0x03078001|UINT32|0x30001033
 
 [PcdsFixedAtBuild,PcdsPatchableInModule]
+  ## VPD type PCD allow developer point an absoluted physical address PcdVpdBaseAddress
+  #  to store PCD value.
+  #
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVpdBaseAddress|0x0|UINT32|0x00010010
+
   ## Maximun number of performance log entries during PEI phase.
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxPeiPerformanceLogEntries|40|UINT8|0x0001002f
 
@@ -877,6 +878,9 @@
 
   ## This PCD specified whether the S.M.A.R.T feature of attached ATA hard disks are enabled.
   gEfiMdeModulePkgTokenSpaceGuid.PcdAtaSmartEnable|TRUE|BOOLEAN|0x00010065
+
+  ## This PCD specifies whether full PCI enumeration is disabled.
+  gEfiMdeModulePkgTokenSpaceGuid.PcdPciDisableBusEnumeration|FALSE|BOOLEAN|0x10000048
 
 [PcdsPatchableInModule]
   ## Specify  memory size with page number for PEI code when 

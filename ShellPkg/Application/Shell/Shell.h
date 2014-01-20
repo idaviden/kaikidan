@@ -1,7 +1,7 @@
 /** @file
   function definitions for internal to shell functions.
 
-  Copyright (c) 2009 - 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2014, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -123,6 +123,40 @@ typedef struct {
 } SHELL_INFO;
 
 extern SHELL_INFO ShellInfoObject;
+
+typedef enum {
+  Internal_Command,
+  Script_File_Name,
+  Efi_Application,
+  File_Sys_Change,
+  Unknown_Invalid
+} SHELL_OPERATION_TYPES;
+
+/**
+  Converts the command line to it's post-processed form.  this replaces variables and alias' per UEFI Shell spec.
+
+  @param[in,out] CmdLine        pointer to the command line to update
+
+  @retval EFI_SUCCESS           The operation was successful
+  @retval EFI_OUT_OF_RESOURCES  A memory allocation failed.
+  @return                       some other error occured
+**/
+EFI_STATUS
+EFIAPI
+ProcessCommandLineToFinal(
+  IN OUT CHAR16 **CmdLine
+  );
+
+/**
+  Function to update the shell variable "lasterror".
+
+  @param[in] ErrorCode      the error code to put into lasterror
+**/
+EFI_STATUS
+EFIAPI
+SetLastError(
+  IN CONST SHELL_STATUS   ErrorCode
+  );
 
 /**
   Sets all the alias' that were registered with the ShellCommandLib library.
@@ -293,13 +327,19 @@ RunScriptFileHandle (
   Function to process a NSH script file.
 
   @param[in] ScriptPath         Pointer to the script file name (including file system path).
+  @param[in] Handle             the handle of the script file already opened.
+  @param[in] CmdLine            the command line to run.
+  @param[in] ParamProtocol      the shell parameters protocol pointer
 
   @retval EFI_SUCCESS           the script completed sucessfully
 **/
 EFI_STATUS
 EFIAPI
 RunScriptFile (
-  IN CONST CHAR16 *ScriptPath
+  IN CONST CHAR16                   *ScriptPath,
+  IN SHELL_FILE_HANDLE              Handle OPTIONAL,
+  IN CONST CHAR16                   *CmdLine,
+  IN EFI_SHELL_PARAMETERS_PROTOCOL  *ParamProtocol
   );
 
 

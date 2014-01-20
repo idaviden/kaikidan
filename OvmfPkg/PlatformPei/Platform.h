@@ -15,6 +15,8 @@
 #ifndef _PLATFORM_PEI_H_INCLUDED_
 #define _PLATFORM_PEI_H_INCLUDED_
 
+#include <IndustryStandard/E820.h>
+
 VOID
 AddIoMemoryBaseSizeHob (
   EFI_PHYSICAL_ADDRESS        MemoryBase,
@@ -57,6 +59,11 @@ AddUntestedMemoryRangeHob (
   EFI_PHYSICAL_ADDRESS        MemoryLimit
   );
 
+EFI_STATUS
+PublishPeiMemory (
+  VOID
+  );
+
 EFI_PHYSICAL_ADDRESS
 MemDetect (
   VOID
@@ -69,7 +76,18 @@ PeiFvInitialization (
 
 EFI_STATUS
 InitializeXen (
+  UINT32 XenLeaf
+  );
+
+UINT32
+XenDetect (
   VOID
+  );
+
+EFI_STATUS
+XenGetE820Map (
+  EFI_E820_ENTRY64 **Entries,
+  UINT32 *Count
   );
 
 #endif // _PLATFORM_PEI_H_INCLUDED_

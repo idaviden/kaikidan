@@ -83,30 +83,23 @@ GetSystemMemorySizeAbove4gb (
   return LShiftU64 (Size, 16);
 }
 
-
 /**
-  Peform Memory Detection
+  Publish PEI core memory
 
   @return EFI_SUCCESS     The PEIM initialized successfully.
 
 **/
-EFI_PHYSICAL_ADDRESS
-MemDetect (
+EFI_STATUS
+PublishPeiMemory (
+  VOID
   )
 {
   EFI_STATUS                  Status;
   EFI_PHYSICAL_ADDRESS        MemoryBase;
   UINT64                      MemorySize;
   UINT64                      LowerMemorySize;
-  UINT64                      UpperMemorySize;
 
-  DEBUG ((EFI_D_ERROR, "MemDetect called\n"));
-
-  //
-  // Determine total memory size available
-  //
   LowerMemorySize = GetSystemMemorySizeBelow4gb ();
-  UpperMemorySize = GetSystemMemorySizeAbove4gb ();
 
   //
   // Determine the range of memory to use during PEI
@@ -124,14 +117,40 @@ MemDetect (
   Status = PublishSystemMemory(MemoryBase, MemorySize);
   ASSERT_EFI_ERROR (Status);
 
+  return Status;
+}
+
+
+/**
+  Peform Memory Detection
+
+  @return Top of memory
+
+**/
+EFI_PHYSICAL_ADDRESS
+MemDetect (
+  )
+{
+  UINT64                      LowerMemorySize;
+  UINT64                      UpperMemorySize;
+
+  DEBUG ((EFI_D_ERROR, "MemDetect called\n"));
+
+  //
+  // Determine total memory size available
+  //
+  LowerMemorySize = GetSystemMemorySizeBelow4gb ();
+  UpperMemorySize = GetSystemMemorySizeAbove4gb ();
+
+  PublishPeiMemory ();
+
   //
   // Create memory HOBs
   //
-  AddMemoryBaseSizeHob (MemoryBase, MemorySize);
-  AddMemoryRangeHob (BASE_1MB, MemoryBase);
+  AddMemoryRangeHob (BASE_1MB, LowerMemorySize);
   AddMemoryRangeHob (0, BASE_512KB + BASE_128KB);
 
-  MtrrSetMemoryAttribute (BASE_1MB, MemoryBase + MemorySize - BASE_1MB, CacheWriteBack);
+  MtrrSetMemoryAttribute (BASE_1MB, LowerMemorySize - BASE_1MB, CacheWriteBack);
 
   MtrrSetMemoryAttribute (0, BASE_512KB + BASE_128KB, CacheWriteBack);
 
@@ -141,6 +160,6 @@ MemDetect (
     MtrrSetMemoryAttribute (BASE_4GB, UpperMemorySize, CacheWriteBack);
   }
 
-  return MemoryBase + MemorySize;
+  return LowerMemorySize;
 }
 

@@ -100,7 +100,7 @@ CommonExceptionHandler (
   
   if (mExternalInterruptHandler[ExceptionType] != NULL) {
     (mExternalInterruptHandler[ExceptionType]) (ExceptionType, SystemContext);
-  } else {
+  } else if (ExceptionType < CPU_EXCEPTION_NUM) {
     //
     // Get Spinlock to display CPU information
     //
@@ -262,14 +262,14 @@ InitializeCpuExceptionHandlersWorker (
                                 previously installed.
   @retval EFI_UNSUPPORTED       The interrupt specified by InterruptType is not supported,
                                 or this function is not supported.
-*/
+**/
 EFI_STATUS
 RegisterCpuInterruptHandlerWorker (
   IN EFI_EXCEPTION_TYPE            InterruptType,
   IN EFI_CPU_INTERRUPT_HANDLER     InterruptHandler
   )
 {
-  if (InterruptType < 0 || InterruptType > (EFI_EXCEPTION_TYPE)mEnabledInterruptNum ||
+  if (InterruptType < 0 || InterruptType >= (EFI_EXCEPTION_TYPE)mEnabledInterruptNum ||
       mReservedVectors[InterruptType].Attribute == EFI_VECTOR_HANDOFF_DO_NOT_HOOK) {
     return EFI_UNSUPPORTED;
   }
