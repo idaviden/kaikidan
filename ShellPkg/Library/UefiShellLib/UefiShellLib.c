@@ -1,7 +1,7 @@
 /** @file
   Provides interface to shell functionality for shell commands and applications.
 
-  Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -1598,6 +1598,7 @@ ShellCloseFileMetaArg (
       FreePool(((EFI_SHELL_FILE_INFO_NO_CONST*)Node)->Info);
       FreePool((EFI_SHELL_FILE_INFO_NO_CONST*)Node);
     }
+    SHELL_FREE_NON_NULL(*ListHead);
     return EFI_SUCCESS;
   }
 
@@ -3296,6 +3297,10 @@ ShellPromptForResponse (
       //
       *Resp = ShellPromptResponseMax;
       while (*Resp == ShellPromptResponseMax) {
+        if (ShellGetExecutionBreakFlag()) {
+          Status = EFI_ABORTED;
+          break;
+        }
         gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, &EventIndex);
         Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
         ASSERT_EFI_ERROR(Status);
@@ -3324,6 +3329,10 @@ ShellPromptForResponse (
       //
       *Resp = ShellPromptResponseMax;
       while (*Resp == ShellPromptResponseMax) {
+        if (ShellGetExecutionBreakFlag()) {
+          Status = EFI_ABORTED;
+          break;
+        }
         gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, &EventIndex);
         Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
         ASSERT_EFI_ERROR(Status);
@@ -3358,6 +3367,10 @@ ShellPromptForResponse (
       //
       *Resp = ShellPromptResponseMax;
       while (*Resp == ShellPromptResponseMax) {
+        if (ShellGetExecutionBreakFlag()) {
+          Status = EFI_ABORTED;
+          break;
+        }
         gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, &EventIndex);
         if (Type == ShellPromptResponseTypeEnterContinue) {
           Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
@@ -3385,6 +3398,10 @@ ShellPromptForResponse (
       //
       *Resp = ShellPromptResponseMax;
       while (*Resp == ShellPromptResponseMax) {
+        if (ShellGetExecutionBreakFlag()) {
+          Status = EFI_ABORTED;
+          break;
+        }
         gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, &EventIndex);
         Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
         ASSERT_EFI_ERROR(Status);
@@ -3406,6 +3423,10 @@ ShellPromptForResponse (
         ShellPrintEx(-1, -1, L"%s", Prompt);
       }
       while(1) {
+        if (ShellGetExecutionBreakFlag()) {
+          Status = EFI_ABORTED;
+          break;
+        }
         gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, &EventIndex);
         Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
         ASSERT_EFI_ERROR(Status);
@@ -3419,6 +3440,7 @@ ShellPromptForResponse (
       break;
     //
     // This is the location to add new prompt types.
+    // If your new type loops remember to add ExecutionBreak support.
     //
     default:
       ASSERT(FALSE);

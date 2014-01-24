@@ -79,13 +79,33 @@ VirtioNetInitRing (
   }
 
   //
+  // Additional steps for MMIO: align the queue appropriately, and set the
+  // size. If anything fails from here on, we must release the ring resources.
+  //
+  Status = Dev->VirtIo->SetQueueNum (Dev->VirtIo, QueueSize);
+  if (EFI_ERROR (Status)) {
+    goto ReleaseQueue;
+  }
+
+  Status = Dev->VirtIo->SetQueueAlign (Dev->VirtIo, EFI_PAGE_SIZE);
+  if (EFI_ERROR (Status)) {
+    goto ReleaseQueue;
+  }
+
+  //
   // step 4c -- report GPFN (guest-physical frame number) of queue
   //
   Status = Dev->VirtIo->SetQueueAddress (Dev->VirtIo,
-      (UINTN) Ring->Base >> EFI_PAGE_SHIFT);
+      (UINT32) ((UINTN) Ring->Base >> EFI_PAGE_SHIFT));
   if (EFI_ERROR (Status)) {
-    VirtioRingUninit (Ring);
+    goto ReleaseQueue;
   }
+
+  return EFI_SUCCESS;
+
+ReleaseQueue:
+  VirtioRingUninit (Ring);
+
   return Status;
 }
 
@@ -382,7 +402,7 @@ VirtioNetInitialize (
   //
   Status = Dev->VirtIo->SetPageSize (Dev->VirtIo, EFI_PAGE_SIZE);
   if (EFI_ERROR (Status)) {
-    goto ReleaseTxRing;
+    goto DeviceFailed;
   }
 
   //

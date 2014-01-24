@@ -4085,6 +4085,10 @@ LoadStorage (
   EFI_STRING  Progress;
   EFI_STRING  Result;
   CHAR16      *StrPtr;
+  EFI_STRING  ConfigRequest;
+  UINTN       StrLen;
+
+  ConfigRequest = NULL;
 
   switch (Storage->BrowserStorage->Type) {
     case EFI_HII_VARSTORE_EFI_VARIABLE:
@@ -4095,6 +4099,21 @@ LoadStorage (
         ConfigRequestAdjust(Storage);
         return;
       }
+
+      //
+      // Create the config request string to get all fields for this storage.
+      // Allocate and fill a buffer large enough to hold the <ConfigHdr> template
+      // followed by "&OFFSET=0&WIDTH=WWWW"followed by a Null-terminator
+      //
+      StrLen = StrSize (Storage->BrowserStorage->ConfigHdr) + 20 * sizeof (CHAR16);
+      ConfigRequest = AllocateZeroPool (StrLen);
+      ASSERT (ConfigRequest != NULL);
+      UnicodeSPrint (
+                 ConfigRequest, 
+                 StrLen, 
+                 L"%s&OFFSET=0&WIDTH=%04x", 
+                 Storage->BrowserStorage->ConfigHdr,
+                 Storage->BrowserStorage->Size);
       break;
 
     case EFI_HII_VARSTORE_BUFFER:
@@ -4106,6 +4125,7 @@ LoadStorage (
         return;
       }
       Storage->BrowserStorage->Initialized = TRUE;
+      ConfigRequest = Storage->ConfigRequest;
       break;
 
     default:
@@ -4117,7 +4137,7 @@ LoadStorage (
   //
   Status = mHiiConfigRouting->ExtractConfig (
                                     mHiiConfigRouting,
-                                    Storage->ConfigRequest,
+                                    ConfigRequest,
                                     &Progress,
                                     &Result
                                     );
@@ -4146,6 +4166,12 @@ LoadStorage (
   // Input NULL for ConfigRequest field means sync all fields from editbuffer to buffer. 
   //
   SynchronizeStorage(FormSet, Storage->BrowserStorage, NULL, TRUE);
+
+  if (Storage->BrowserStorage->Type == EFI_HII_VARSTORE_EFI_VARIABLE_BUFFER) {
+    if (ConfigRequest != NULL) {
+      FreePool (ConfigRequest);
+    }
+  }
 }
 
 /**
@@ -4876,21 +4902,27 @@ IsBrowserDataModified (
   LIST_ENTRY              *Link;
   FORM_BROWSER_FORMSET    *FormSet;
 
-  if (gCurrentSelection == NULL) {
-    return FALSE;
-  }
-
   switch (gBrowserSettingScope) {
     case FormLevel:
+      if (gCurrentSelection == NULL) {
+        return FALSE;
+      }
       return IsNvUpdateRequiredForForm (gCurrentSelection->Form);
 
     case FormSetLevel:
+      if (gCurrentSelection == NULL) {
+        return FALSE;
+      }
       return IsNvUpdateRequiredForFormSet (gCurrentSelection->FormSet);
 
     case SystemLevel:
       Link = GetFirstNode (&gBrowserFormSetList);
       while (!IsNull (&gBrowserFormSetList, Link)) {
         FormSet = FORM_BROWSER_FORMSET_FROM_LINK (Link);
+        if (!ValidateFormSet(FormSet)) {
+          continue;
+        }
+
         if (IsNvUpdateRequiredForFormSet (FormSet)) {
           return TRUE;
         }
@@ -4920,19 +4952,27 @@ ExecuteAction (
   IN UINT16        DefaultId
   )
 {
-  EFI_STATUS Status;
+  EFI_STATUS              Status;
+  FORM_BROWSER_FORMSET    *FormSet;
+  FORM_BROWSER_FORM       *Form;
 
-  if (gCurrentSelection == NULL) {
+  if (gBrowserSettingScope < SystemLevel && gCurrentSelection == NULL) {
     return EFI_NOT_READY;
   }
 
-  Status = EFI_SUCCESS;
+  Status  = EFI_SUCCESS;
+  FormSet = NULL;
+  Form    = NULL;
+  if (gBrowserSettingScope < SystemLevel) {
+    FormSet = gCurrentSelection->FormSet;
+    Form    = gCurrentSelection->Form; 
+  }
 
   //
   // Executet the discard action.
   //
   if ((Action & BROWSER_ACTION_DISCARD) != 0) {
-    Status = DiscardForm (gCurrentSelection->FormSet, gCurrentSelection->Form, gBrowserSettingScope);
+    Status = DiscardForm (FormSet, Form, gBrowserSettingScope);
     if (EFI_ERROR (Status)) {
       return Status;
     }
@@ -4942,7 +4982,7 @@ ExecuteAction (
   // Executet the difault action.
   //
   if ((Action & BROWSER_ACTION_DEFAULT) != 0) {
-    Status = ExtractDefault (gCurrentSelection->FormSet, gCurrentSelection->Form, DefaultId, gBrowserSettingScope, GetDefaultForAll, NULL, FALSE);
+    Status = ExtractDefault (FormSet, Form, DefaultId, gBrowserSettingScope, GetDefaultForAll, NULL, FALSE);
     if (EFI_ERROR (Status)) {
       return Status;
     }
@@ -4952,7 +4992,7 @@ ExecuteAction (
   // Executet the submit action.
   //
   if ((Action & BROWSER_ACTION_SUBMIT) != 0) {
-    Status = SubmitForm (gCurrentSelection->FormSet, gCurrentSelection->Form, gBrowserSettingScope);
+    Status = SubmitForm (FormSet, Form, gBrowserSettingScope);
     if (EFI_ERROR (Status)) {
       return Status;
     }
@@ -4969,7 +5009,7 @@ ExecuteAction (
   // Executet the exit action.
   //
   if ((Action & BROWSER_ACTION_EXIT) != 0) {
-    DiscardForm (gCurrentSelection->FormSet, gCurrentSelection->Form, gBrowserSettingScope);
+    DiscardForm (FormSet, Form, gBrowserSettingScope);
     if (gBrowserSettingScope == SystemLevel) {
       if (ExitHandlerFunction != NULL) {
         ExitHandlerFunction ();
@@ -4989,6 +5029,7 @@ ExecuteAction (
   @retval BROWSER_NO_CHANGES       No browser data is changed.
   @retval BROWSER_SAVE_CHANGES     The changed browser data is saved.
   @retval BROWSER_DISCARD_CHANGES  The changed browser data is discard.
+  @retval BROWSER_KEEP_CURRENT     Browser keep current changes.
 
 **/
 UINT32
@@ -5001,6 +5042,7 @@ SaveReminder (
   FORM_BROWSER_FORMSET    *FormSet;
   BOOLEAN                 IsDataChanged;
   UINT32                  DataSavedAction;
+  UINT32                  ConfirmRet;
 
   DataSavedAction  = BROWSER_NO_CHANGES;
   IsDataChanged    = FALSE;
@@ -5028,13 +5070,18 @@ SaveReminder (
   // If data is changed, prompt user to save or discard it. 
   //
   do {
-    DataSavedAction = (UINT32) mFormDisplay->ConfirmDataChange();
+    ConfirmRet = (UINT32) mFormDisplay->ConfirmDataChange();
 
-    if (DataSavedAction == BROWSER_SAVE_CHANGES) {
+    if (ConfirmRet == BROWSER_ACTION_SUBMIT) {
       SubmitForm (NULL, NULL, SystemLevel);
+      DataSavedAction = BROWSER_SAVE_CHANGES;
       break;
-    } else if (DataSavedAction == BROWSER_DISCARD_CHANGES) {
+    } else if (ConfirmRet == BROWSER_ACTION_DISCARD) {
       DiscardForm (NULL, NULL, SystemLevel);
+      DataSavedAction = BROWSER_DISCARD_CHANGES;
+      break;
+    } else if (ConfirmRet == BROWSER_ACTION_NONE) {
+      DataSavedAction = BROWSER_KEEP_CURRENT;
       break;
     }
   } while (1);

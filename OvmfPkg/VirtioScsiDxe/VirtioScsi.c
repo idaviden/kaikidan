@@ -50,14 +50,14 @@
 
 /**
 
-  Convenience macros to read and write region 0 IO space elements of the
-  virtio-scsi VirtIo device, for configuration purposes.
+  Convenience macros to read and write configuration elements of the
+  virtio-scsi VirtIo device.
 
   The following macros make it possible to specify only the "core parameters"
   for such accesses and to derive the rest. By the time VIRTIO_CFG_WRITE()
   returns, the transaction will have been completed.
 
-  @param[in] Dev       Pointer to the VirtIo Device Protocol
+  @param[in] Dev       Pointer to the VSCSI_DEV structure.
 
   @param[in] Field     A field name from VSCSI_HDR, identifying the virtio-scsi
                        configuration item to access.
@@ -738,7 +738,7 @@ VirtioScsiInit (
   //
   Status = Dev->VirtIo->SetPageSize (Dev->VirtIo, EFI_PAGE_SIZE);
   if (EFI_ERROR (Status)) {
-    goto ReleaseQueue;
+    goto Failed;
   }
 
   //
@@ -825,11 +825,24 @@ VirtioScsiInit (
   }
 
   //
-  // step 4c -- Report GPFN (guest-physical frame number) of queue. If anything
-  // fails from here on, we must release the ring resources.
+  // Additional steps for MMIO: align the queue appropriately, and set the
+  // size. If anything fails from here on, we must release the ring resources.
+  //
+  Status = Dev->VirtIo->SetQueueNum (Dev->VirtIo, QueueSize);
+  if (EFI_ERROR (Status)) {
+    goto ReleaseQueue;
+  }
+
+  Status = Dev->VirtIo->SetQueueAlign (Dev->VirtIo, EFI_PAGE_SIZE);
+  if (EFI_ERROR (Status)) {
+    goto ReleaseQueue;
+  }
+
+  //
+  // step 4c -- Report GPFN (guest-physical frame number) of queue.
   //
   Status = Dev->VirtIo->SetQueueAddress (Dev->VirtIo,
-      (UINTN) Dev->Ring.Base >> EFI_PAGE_SHIFT);
+      (UINT32) ((UINTN) Dev->Ring.Base >> EFI_PAGE_SHIFT));
   if (EFI_ERROR (Status)) {
     goto ReleaseQueue;
   }

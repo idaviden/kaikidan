@@ -80,11 +80,10 @@ VirtioPciIoRead (
   EFI_PCI_IO_PROTOCOL_WIDTH Width;
   EFI_PCI_IO_PROTOCOL       *PciIo;
 
-  // The BufferSize must be a multiple of FieldSize
-  ASSERT ((BufferSize % FieldSize) == 0);
+  ASSERT (FieldSize == BufferSize);
 
   PciIo = Dev->PciIo;
-  Count = BufferSize / FieldSize;
+  Count = 1;
 
   switch (FieldSize) {
     case 1:
@@ -96,6 +95,7 @@ VirtioPciIoRead (
       break;
 
     case 8:
+      //
       // The 64bit PCI I/O is broken down into two 32bit reads to prevent
       // any alignment or width issues.
       // The UEFI spec says under EFI_PCI_IO_PROTOCOL.Io.Write():
@@ -103,10 +103,13 @@ VirtioPciIoRead (
       // The I/O operations are carried out exactly as requested. The caller
       // is responsible for any alignment and I/O width issues which the
       // bus, device, platform, or type of I/O might require. For example on
-      // some platforms, width requests of EfiPciIoWidthUint64 do not work
-      Count = Count * 2;
-      // fall through
+      // some platforms, width requests of EfiPciIoWidthUint64 do not work.
+      //
+      Count = 2;
 
+      //
+      // fall through
+      //
     case 4:
       Width = EfiPciIoWidthUint32;
       break;
@@ -172,6 +175,7 @@ VirtioPciIoWrite (
       break;
 
     case 8:
+      //
       // The 64bit PCI I/O is broken down into two 32bit writes to prevent
       // any alignment or width issues.
       // The UEFI spec says under EFI_PCI_IO_PROTOCOL.Io.Write():
@@ -180,9 +184,12 @@ VirtioPciIoWrite (
       // is responsible for any alignment and I/O width issues which the
       // bus, device, platform, or type of I/O might require. For example on
       // some platforms, width requests of EfiPciIoWidthUint64 do not work
+      //
       Count = Count * 2;
-      // fall through
 
+      //
+      // fall through
+      //
     case 4:
       Width = EfiPciIoWidthUint32;
       break;
@@ -341,16 +348,22 @@ VirtioPciInit (
     return Status;
   }
 
+  //
   // Copy protocol template
+  //
   CopyMem (&Device->VirtioDevice, &mDeviceProtocolTemplate,
       sizeof (VIRTIO_DEVICE_PROTOCOL));
 
+  //
   // Initialize the protocol interface attributes
+  //
   Device->VirtioDevice.Revision = VIRTIO_SPEC_REVISION (0, 9, 5);
   Device->VirtioDevice.SubSystemDeviceId = Pci.Device.SubsystemID;
 
+  //
   // Note: We don't support the MSI-X capability.  If we did,
   //       the offset would become 24 after enabling MSI-X.
+  //
   Device->DeviceSpecificConfigurationOffset =
       VIRTIO_DEVICE_SPECIFIC_CONFIGURATION_OFFSET_PCI;
 

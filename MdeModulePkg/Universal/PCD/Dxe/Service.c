@@ -50,6 +50,7 @@ GetLocalTokenNumber (
   IN UINTN              TokenNumber
   )
 {
+  UINTN                 TmpTokenNumber;
   UINT32                *LocalTokenNumberTable;
   UINT32                LocalTokenNumber;
   UINTN                 Size;
@@ -62,6 +63,11 @@ GetLocalTokenNumber (
   //
   TokenNumber--;
 
+  //
+  // Backup the TokenNumber passed in as GetPtrTypeSize need the original TokenNumber
+  // 
+  TmpTokenNumber = TokenNumber;
+
   LocalTokenNumberTable  = IsPeiDb ? (UINT32 *)((UINT8 *)mPcdDatabase.PeiDb + mPcdDatabase.PeiDb->LocalTokenNumberTableOffset) : 
                                      (UINT32 *)((UINT8 *)mPcdDatabase.DxeDb + mPcdDatabase.DxeDb->LocalTokenNumberTableOffset);
   TokenNumber            = IsPeiDb ? TokenNumber : TokenNumber - mPeiLocalTokenCount;
@@ -72,7 +78,7 @@ GetLocalTokenNumber (
 
   if ((LocalTokenNumber & PCD_TYPE_SKU_ENABLED) == PCD_TYPE_SKU_ENABLED) {
     if (Size == 0) {
-      GetPtrTypeSize (TokenNumber, &MaxSize);
+      GetPtrTypeSize (TmpTokenNumber, &MaxSize);
     } else {
       MaxSize = Size;
     }
@@ -768,6 +774,18 @@ BuildPcdDxeDataBase (
   UINT32              PcdDxeDbLen;
   VOID                *PcdDxeDb;
 
+  //
+  // Assign PCD Entries with default value to PCD DATABASE
+  //
+  mPcdDatabase.DxeDb = LocateExPcdBinary ();
+  ASSERT(mPcdDatabase.DxeDb != NULL);
+  PcdDxeDbLen = mPcdDatabase.DxeDb->Length + mPcdDatabase.DxeDb->UninitDataBaseSize;
+  PcdDxeDb = AllocateZeroPool (PcdDxeDbLen);
+  ASSERT (PcdDxeDb != NULL);
+  CopyMem (PcdDxeDb, mPcdDatabase.DxeDb, mPcdDatabase.DxeDb->Length);
+  FreePool (mPcdDatabase.DxeDb);
+  mPcdDatabase.DxeDb = PcdDxeDb;
+
   GuidHob = GetFirstGuidHob (&gPcdDataBaseHobGuid);
   if (GuidHob != NULL) {
 
@@ -783,19 +801,14 @@ BuildPcdDxeDataBase (
     // Assign PCD Entries refereneced in PEI phase to PCD DATABASE
     //
     mPcdDatabase.PeiDb = PeiDatabase;
+    //
+    // Inherit the SystemSkuId from PEI phase.
+    //
+    mPcdDatabase.DxeDb->SystemSkuId = mPcdDatabase.PeiDb->SystemSkuId;
+  } else {
+    mPcdDatabase.PeiDb = AllocateZeroPool (sizeof (PEI_PCD_DATABASE));
+    ASSERT(mPcdDatabase.PeiDb != NULL);
   }
-
-  //
-  // Assign PCD Entries with default value to PCD DATABASE
-  //
-  mPcdDatabase.DxeDb = LocateExPcdBinary ();
-  ASSERT(mPcdDatabase.DxeDb != NULL);
-  PcdDxeDbLen = mPcdDatabase.DxeDb->Length + mPcdDatabase.DxeDb->UninitDataBaseSize;
-  PcdDxeDb = AllocateZeroPool (PcdDxeDbLen);
-  ASSERT (PcdDxeDb != NULL);
-  CopyMem (PcdDxeDb, mPcdDatabase.DxeDb, mPcdDatabase.DxeDb->Length);
-  FreePool (mPcdDatabase.DxeDb);
-  mPcdDatabase.DxeDb = PcdDxeDb;
 
   //
   // Initialized the external PCD database local variables
@@ -939,7 +952,7 @@ GetSkuEnabledTokenNumber (
   //
   FoundSku = FALSE;
   for (Index = 0; Index < SkuIdTable[0]; Index++) {
-    if (mPcdDatabase.PeiDb->SystemSkuId == SkuIdTable[Index + 1]) {
+    if (mPcdDatabase.DxeDb->SystemSkuId == SkuIdTable[Index + 1]) {
       FoundSku = TRUE;
       break;
     }
@@ -1698,7 +1711,7 @@ GetPtrTypeSize (
       //
       SkuIdTable = GetSkuIdArray (LocalTokenNumberTableIdx, IsPeiDb);
       for (Index = 0; Index < SkuIdTable[0]; Index++) {
-        if (SkuIdTable[1 + Index] == mPcdDatabase.PeiDb->SystemSkuId) {
+        if (SkuIdTable[1 + Index] == mPcdDatabase.DxeDb->SystemSkuId) {
           return SizeTable[SizeTableIdx + 1 + Index];
         }
       }
@@ -1788,7 +1801,7 @@ SetPtrTypeSize (
       //
       SkuIdTable = GetSkuIdArray (LocalTokenNumberTableIdx, IsPeiDb);
       for (Index = 0; Index < SkuIdTable[0]; Index++) {
-        if (SkuIdTable[1 + Index] == mPcdDatabase.PeiDb->SystemSkuId) {
+        if (SkuIdTable[1 + Index] == mPcdDatabase.DxeDb->SystemSkuId) {
           SizeTable[SizeTableIdx + 1 + Index] = (SIZE_INFO) *CurrentSize;
           return TRUE;
         }

@@ -1,6 +1,9 @@
 /** @file
   Virtio Device
 
+  DISCLAIMER: the VIRTIO_DEVICE_PROTOCOL introduced here is a work in progress,
+  and should not be used outside of the EDK II tree.
+
   Copyright (c) 2013, ARM Ltd. All rights reserved.<BR>
 
   This program and the accompanying materials are licensed and made available
@@ -340,6 +343,9 @@ EFI_STATUS
 
 ///
 ///  This protocol provides an abstraction over the VirtIo transport layer
+///
+///  DISCLAIMER: this protocol is a work in progress, and should not be used
+///  outside of the EDK II tree.
 ///
 struct _VIRTIO_DEVICE_PROTOCOL {
   /// VirtIo Specification Revision encoded with VIRTIO_SPEC_REVISION()

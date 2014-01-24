@@ -49,8 +49,7 @@
                                     unused.
 
   @retval EFI_UNSUPPORTED           The host doesn't supply a MAC address.
-  @return                           Status codes from Dev->VirtIo->Io.Read(),
-                                    VIRTIO_CFG_READ() and VIRTIO_CFG_WRITE().
+  @return                           Status codes from VirtIo protocol members.
   @retval EFI_SUCCESS               Configuration values retrieved.
 */
 STATIC
@@ -66,6 +65,7 @@ VirtioNetGetFeatures (
   EFI_STATUS Status;
   UINT8      NextDevStat;
   UINT32     Features;
+  UINTN      MacIdx;
   UINT16     LinkStatus;
 
   //
@@ -105,15 +105,16 @@ VirtioNetGetFeatures (
     Status = EFI_UNSUPPORTED;
     goto YieldDevice;
   }
-  Status = Dev->VirtIo->ReadDevice (Dev->VirtIo,
-                                    OFFSET_OF_VNET (Mac), // Offset
-                                    sizeof(UINT8),        // FieldSize
-                                    SIZE_OF_VNET (Mac),   // BufferSize
-                                    MacAddress            // Buffer
-                                    );
-
-  if (EFI_ERROR (Status)) {
-    goto YieldDevice;
+  for (MacIdx = 0; MacIdx < SIZE_OF_VNET (Mac); ++MacIdx) {
+    Status = Dev->VirtIo->ReadDevice (Dev->VirtIo,
+                            OFFSET_OF_VNET (Mac) + MacIdx, // Offset
+                            1,                             // FieldSize
+                            1,                             // BufferSize
+                            &MacAddress->Addr[MacIdx]      // Buffer
+                            );
+    if (EFI_ERROR (Status)) {
+      goto YieldDevice;
+    }
   }
 
   //
@@ -457,10 +458,6 @@ VirtioNetDriverBindingStart (
                   DeviceHandle, EFI_OPEN_PROTOCOL_BY_DRIVER);
   if (EFI_ERROR (Status)) {
     goto FreeVirtioNet;
-  }
-
-  if (Dev->VirtIo->SubSystemDeviceId != VIRTIO_SUBSYSTEM_NETWORK_CARD) {
-    return EFI_UNSUPPORTED;
   }
 
   //

@@ -19,10 +19,12 @@
 
 #define ARM_FVP_BASE_VIRTIO_BLOCK_BASE    0x1c130000
 
+#pragma pack(1)
 typedef struct {
   VENDOR_DEVICE_PATH                  Vendor;
   EFI_DEVICE_PATH_PROTOCOL            End;
 } VIRTIO_BLK_DEVICE_PATH;
+#pragma pack()
 
 VIRTIO_BLK_DEVICE_PATH mVirtioBlockDevicePath =
 {
@@ -40,7 +42,7 @@ VIRTIO_BLK_DEVICE_PATH mVirtioBlockDevicePath =
   {
     END_DEVICE_PATH_TYPE,
     END_ENTIRE_DEVICE_PATH_SUBTYPE,
-        {
+    {
       sizeof (EFI_DEVICE_PATH_PROTOCOL),
       0
     }

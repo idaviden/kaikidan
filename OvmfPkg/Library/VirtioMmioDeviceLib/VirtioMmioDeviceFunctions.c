@@ -48,7 +48,7 @@ VirtioMmioGetQueueAddress (
   VIRTIO_MMIO_DEVICE *Device;
 
   if (QueueAddress == NULL) {
-
+    return EFI_INVALID_PARAMETER;
   }
 
   Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
@@ -109,7 +109,9 @@ VirtioMmioSetQueueSize (
 
   Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
 
-  return VIRTIO_CFG_WRITE (Device, VIRTIO_MMIO_OFFSET_QUEUE_NUM, QueueSize);
+  VIRTIO_CFG_WRITE (Device, VIRTIO_MMIO_OFFSET_QUEUE_NUM, QueueSize);
+
+  return EFI_SUCCESS;
 }
 
 EFI_STATUS
@@ -169,7 +171,9 @@ VirtioMmioSetPageSize (
 {
   VIRTIO_MMIO_DEVICE *Device;
 
-  ASSERT (PageSize == EFI_PAGE_SIZE);
+  if (PageSize != EFI_PAGE_SIZE) {
+    return EFI_UNSUPPORTED;
+  }
 
   Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
 
@@ -239,17 +243,17 @@ VirtioMmioDeviceWrite (
 
   Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
 
+  //
   // Double-check fieldsize
-  if (FieldSize > 8) {
-    return EFI_INVALID_PARAMETER;
-  }
-
+  //
   if ((FieldSize != 1) && (FieldSize != 2) &&
       (FieldSize != 4) && (FieldSize != 8)) {
     return EFI_INVALID_PARAMETER;
   }
 
+  //
   // Compute base address
+  //
   DstBaseAddress = Device->BaseAddress +
       VIRTIO_DEVICE_SPECIFIC_CONFIGURATION_OFFSET_MMIO + FieldOffset;
 
@@ -277,20 +281,22 @@ VirtioMmioDeviceRead (
 
   Device = VIRTIO_MMIO_DEVICE_FROM_VIRTIO_DEVICE (This);
 
+  //
   // Parameter validation
+  //
   ASSERT (FieldSize == BufferSize);
 
+  //
   // Double-check fieldsize
-  if (FieldSize > 8) {
-    return EFI_INVALID_PARAMETER;
-  }
-
+  //
   if ((FieldSize != 1) && (FieldSize != 2) &&
       (FieldSize != 4) && (FieldSize != 8)) {
     return EFI_INVALID_PARAMETER;
   }
 
+  //
   // Compute base address
+  //
   SrcBaseAddress = Device->BaseAddress +
       VIRTIO_DEVICE_SPECIFIC_CONFIGURATION_OFFSET_MMIO + FieldOffset;
 

@@ -23,12 +23,13 @@
 
   @param[in] BaseAddress  Base Address of the VirtIo MMIO Device
 
-  @param[in] Handle       Handle of the device the driver should be attached to.
+  @param[in] Handle       Handle of the device the driver should be attached
+                          to.
 
   @retval EFI_SUCCESS           The VirtIo Device has been installed
                                 successfully.
 
-  @retval EFI_OUT_OF_RESOURCES  The function failed too allocate memory require
+  @retval EFI_OUT_OF_RESOURCES  The function failed to allocate memory required
                                 by the Virtio MMIO device initialization.
 
   @retval EFI_UNSUPPORTED       BaseAddress does not point to a VirtIo MMIO

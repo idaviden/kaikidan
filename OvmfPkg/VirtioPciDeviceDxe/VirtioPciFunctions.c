@@ -24,12 +24,12 @@
 
 /**
 
-  Read a word from Region 0 of the device specified by PciIo.
+  Read a word from Region 0 of the device specified by VirtIo Device protocol.
 
   The function implements the ReadDevice protocol member of
   VIRTIO_DEVICE_PROTOCOL.
 
-  @param[in] PciIo        Source PCI device.
+  @param[in] This         VirtIo Device protocol.
 
   @param[in] FieldOffset  Source offset.
 
@@ -235,9 +235,7 @@ VirtioPciSetPageSize (
   UINT32                  PageSize
   )
 {
-  ASSERT (PageSize == EFI_PAGE_SIZE);
-
-  return EFI_SUCCESS;
+  return (PageSize == EFI_PAGE_SIZE) ? EFI_SUCCESS : EFI_UNSUPPORTED;
 }
 
 EFI_STATUS
