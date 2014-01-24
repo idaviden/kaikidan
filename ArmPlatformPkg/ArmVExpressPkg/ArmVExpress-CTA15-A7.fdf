@@ -110,7 +110,7 @@ READ_LOCK_STATUS   = TRUE
   #
   INF ArmPlatformPkg/PlatformSmbiosDxe/PlatformSmbiosDxe.inf
   INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
-
+  
   #
   # Filesystems
   #

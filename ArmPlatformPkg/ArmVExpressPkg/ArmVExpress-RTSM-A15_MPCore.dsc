@@ -263,7 +263,7 @@
   #
   ArmPlatformPkg/PlatformSmbiosDxe/PlatformSmbiosDxe.inf
   MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
-
+ 
   #
   # Semi-hosting filesystem
   #
